@@ -9,10 +9,18 @@ export default async function handler(req, res) {
   const { names, daysBack } = req.body;
 
   try {
-    const lastNames = [...new Set(names.map(n => n.split(' ').pop()))];
-    const authorQuery = lastNames.map(n => `au:${n}`).join('+OR+');
+    // Search each person individually using last name + first initial for precision
+    const authorVariants = names.map(n => {
+      const parts = n.trim().split(' ');
+      const last = parts[parts.length - 1];
+      const first = parts[0];
+      // Use "last_first" format arXiv supports
+      return `au:${last}_${first.charAt(0)}`;
+    });
+
+    const authorQuery = [...new Set(authorVariants)].join('+OR+');
     const query = `(${authorQuery})+AND+cat:astro-ph*`;
-    const url = `https://export.arxiv.org/api/query?search_query=${query}&start=0&max_results=100&sortBy=submittedDate&sortOrder=descending`;
+    const url = `https://export.arxiv.org/api/query?search_query=${query}&start=0&max_results=200&sortBy=submittedDate&sortOrder=descending`;
 
     const response = await fetch(url);
     if (!response.ok) throw new Error('arXiv fetch failed');
