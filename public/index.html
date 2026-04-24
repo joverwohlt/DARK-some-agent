@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DARK SoMe Agent</title>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --red: #c0392b;
+    --dark: #1a1a2e;
+    --mid: #2d2d44;
+    --light: #f4f4f0;
+    --accent: #e8e0d0;
+    --text: #1a1a1a;
+    --muted: #666;
+    --border: #ddd;
+    --green: #27ae60;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--light);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--dark);
+    color: white;
+    padding: 24px 40px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    border-bottom: 3px solid var(--red);
+  }
+
+  .nbi-logo {
+    width: 48px; height: 48px;
+    background: var(--red);
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600; font-size: 14px; letter-spacing: 1px;
+    flex-shrink: 0;
+  }
+
+  header h1 { font-size: 20px; font-weight: 500; }
+  header p { font-size: 13px; color: #aaa; margin-top: 2px; }
+
+  .container { max-width: 960px; margin: 0 auto; padding: 40px 24px; }
+
+  .card {
+    background: white;
+    border-radius: 8px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+
+  .card h2 {
+    font-size: 15px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--red);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+
+  label {
+    font-size: 12px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--muted);
+  }
+
+  input[type="number"] {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    background: #fafafa;
+    width: 160px;
+  }
+
+  input[type="number"]:focus {
+    outline: none;
+    border-color: var(--red);
+    background: white;
+  }
+
+  .team-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .team-member {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #fafafa;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+
+  .team-member:hover { border-color: var(--red); }
+  .team-member input[type="checkbox"] { accent-color: var(--red); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
+  .team-member label { font-size: 13px; text-transform: none; letter-spacing: 0; color: var(--text); cursor: pointer; font-weight: 400; }
+
+  .btn-primary {
+    background: var(--red); color: white;
+    border: none; padding: 14px 36px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 15px; font-weight: 600;
+    border-radius: 6px; cursor: pointer;
+    transition: background 0.2s; width: 100%;
+  }
+
+  .btn-primary:hover:not(:disabled) { background: #a93226; }
+  .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+
+  .btn-secondary {
+    background: transparent; color: var(--red);
+    border: 1px solid var(--red);
+    padding: 8px 20px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px; font-weight: 500;
+    border-radius: 6px; cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-secondary:hover { background: var(--red); color: white; }
+
+  .loading-spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white; border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 8px; vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .progress-bar { background: var(--border); border-radius: 4px; height: 6px; margin: 16px 0; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--red); border-radius: 4px; transition: width 0.5s ease; width: 0%; }
+
+  .status-log {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px; color: var(--muted);
+    padding: 12px 16px;
+    background: #f8f8f8;
+    border-radius: 6px;
+    border-left: 3px solid var(--red);
+    min-height: 44px;
+  }
+
+  .error-box {
+    background: #fff5f5; border: 1px solid #faa;
+    border-radius: 6px; padding: 14px 18px;
+    color: var(--red); font-size: 13px;
+    margin-top: 12px; display: none;
+  }
+  .error-box.visible { display: block; }
+
+  #results { display: none; }
+
+  .paper-result {
+    background: white;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    margin-bottom: 28px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+
+  .paper-header {
+    background: var(--dark);
+    color: white;
+    padding: 16px 24px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .paper-header h3 { font-size: 15px; font-weight: 600; flex: 1; line-height: 1.4; }
+  .paper-header .meta { font-size: 12px; color: #aaa; margin-top: 4px; }
+
+  .status-badge {
+    font-size: 11px; padding: 4px 10px;
+    border-radius: 12px; font-weight: 600;
+    white-space: nowrap; flex-shrink: 0;
+  }
+
+  .status-badge.sending { background: #f39c12; color: white; }
+  .status-badge.sent { background: var(--green); color: white; }
+  .status-badge.error { background: var(--red); color: white; }
+  .status-badge.generating { background: #3498db; color: white; }
+
+  .paper-body { padding: 24px; }
+
+  .section-label {
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 1px; font-weight: 600;
+    color: var(--red); margin-bottom: 8px;
+    margin-top: 20px;
+  }
+
+  .section-label:first-child { margin-top: 0; }
+
+  .result-text {
+    white-space: pre-wrap;
+    font-size: 13px; line-height: 1.7;
+    color: var(--text);
+    background: #fafafa;
+    padding: 14px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+
+  .image-rec {
+    background: var(--accent);
+    border-radius: 6px;
+    padding: 14px 18px;
+    border-left: 3px solid var(--red);
+    font-size: 13px; line-height: 1.6;
+    color: #444; margin-top: 10px;
+  }
+
+  .image-rec a { color: var(--red); word-break: break-all; }
+
+  .hashtags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .hashtag {
+    background: var(--accent); padding: 4px 10px;
+    border-radius: 20px; font-size: 12px;
+    font-weight: 500; color: var(--dark);
+  }
+
+  .arxiv-link { color: #aaa; font-size: 12px; }
+  .arxiv-link:hover { color: white; }
+
+  .summary-bar {
+    background: var(--dark); color: white;
+    border-radius: 8px; padding: 20px 28px;
+    display: flex; align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+  }
+
+  .summary-bar h3 { font-size: 16px; margin-bottom: 4px; }
+  .summary-bar p { font-size: 13px; color: #ccc; }
+
+  .no-papers {
+    text-align: center; padding: 48px;
+    color: var(--muted); font-size: 15px;
+    background: white; border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+  .select-all-row {
+    display: flex; gap: 12px; margin-bottom: 12px;
+    font-size: 13px;
+  }
+
+  .link-btn {
+    color: var(--red); cursor: pointer;
+    text-decoration: underline; background: none;
+    border: none; font-size: 13px; font-family: inherit;
+    padding: 0;
+  }
+
+  @media (max-width: 600px) {
+    .team-grid { grid-template-columns: 1fr 1fr; }
+    header { padding: 16px 20px; }
+    .container { padding: 24px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nbi-logo">NBI</div>
+  <div>
+    <h1>DARK SoMe Agent</h1>
+    <p>Automated arXiv scanner and communications generator</p>
+  </div>
+</header>
+
+<div class="container">
+
+  <div id="inputSection">
+
+    <div class="card">
+      <h2>Scan Settings</h2>
+      <div class="form-group">
+        <label>Days to scan back</label>
+        <input type="number" id="daysBack" value="7" min="1" max="1095">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>DARK Team Members</h2>
+      <div class="select-all-row">
+        <button class="link-btn" onclick="selectAll(true)">Select all</button>
+        <button class="link-btn" onclick="selectAll(false)">Deselect all</button>
+      </div>
+      <div class="team-grid" id="teamGrid"></div>
+    </div>
+
+    <div id="errorBox" class="error-box"></div>
+
+    <div id="progressSection" style="display:none;">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="status-log" id="statusLog">Initialising...</div>
+    </div>
+
+    <button class="btn-primary" id="scanBtn" onclick="startScan()">
+      Scan arXiv and Generate Materials
+    </button>
+
+  </div>
+
+  <div id="results">
+    <div class="summary-bar">
+      <div>
+        <h3 id="summaryTitle"></h3>
+        <p id="summaryText"></p>
+      </div>
+      <button class="btn-secondary" onclick="resetForm()" style="border-color:rgba(255,255,255,0.4);color:white;">← New Scan</button>
+    </div>
+    <div id="papersContainer"></div>
+  </div>
+
+</div>
+
+<script>
+emailjs.init('np6yTkhc5BQdMM25x');
+const EMAILJS_SERVICE = 'service_lo8iasq';
+const EMAILJS_TEMPLATE = 'template_jphe34r';
+const CC_EMAIL = 'jo.verwohlt@nbi.ku.dk';
+
+const TEAM = [
+  { name: 'Aidan Sedgewick',       email: 'aidan.sedgewick@nbi.ku.dk',       arxivNames: ['Sedgewick, A', 'Sedgewick, Aidan'] },
+  { name: 'Aleksandra Lesniewska', email: 'aleksandra.lesniewska@nbi.ku.dk', arxivNames: ['Lesniewska, A', 'Lesniewska, Aleksandra', 'Lesniewska, A. L'] },
+  { name: 'Aman Raju',             email: 'aman.raju@nbi.ku.dk',             arxivNames: ['Raju, A', 'Raju, Aman'] },
+  { name: 'Cecilia Bacchini',      email: 'cecilia.bacchini@nbi.ku.dk',      arxivNames: ['Bacchini, C', 'Bacchini, Cecilia'] },
+  { name: 'Christa Gall',          email: 'christa.gall@nbi.ku.dk',          arxivNames: ['Gall, C', 'Gall, Christa'] },
+  { name: 'Clara Ferreira Cores',  email: 'clara.cores@nbi.ku.dk',           arxivNames: ['Ferreira Cores, C', 'Cores, C', 'Ferreira Cores, Clara', 'Cores, C. F'] },
+  { name: 'Danial Langeroodi',     email: 'danial.langeroodi@nbi.ku.dk',     arxivNames: ['Langeroodi, D', 'Rangavar Langeroodi, D', 'Langeroodi, Danial'] },
+  { name: 'Jens Hjorth',           email: 'jens@nbi.ku.dk',                  arxivNames: ['Hjorth, J', 'Hjorth, Jens'] },
+  { name: 'Jo Verwohlt',           email: 'jo.verwohlt@nbi.ku.dk',           arxivNames: ['Verwohlt, J', 'Verwohlt, Jo'] },
+  { name: 'Judit Prat',            email: 'judit.prat@nbi.ku.dk',            arxivNames: ['Prat, J', 'Prat, Judit'] },
+  { name: 'Radek Wojtak',          email: 'radek.wojtak@nbi.ku.dk',          arxivNames: ['Wojtak, R', 'Wojtak, Radek', 'Wojtak, Radoslaw', 'Wojtak, R. J'] },
+  { name: 'William Baker',         email: 'william.baker@nbi.ku.dk',         arxivNames: ['Baker, W', 'Baker, William', 'Baker, W. M'] },
+];
+
+function renderTeam() {
+  const grid = document.getElementById('teamGrid');
+  TEAM.forEach((m, i) => {
+    const div = document.createElement('div');
+    div.className = 'team-member';
+    div.innerHTML = `
+      <input type="checkbox" id="tm${i}" checked>
+      <label for="tm${i}">${m.name}</label>`;
+    div.addEventListener('click', e => {
+      if (e.target.tagName !== 'INPUT') document.getElementById(`tm${i}`).click();
+    });
+    grid.appendChild(div);
+  });
+}
+renderTeam();
+
+function selectAll(val) {
+  TEAM.forEach((m, i) => document.getElementById(`tm${i}`).checked = val);
+}
+
+async function startScan() {
+  const daysBack = parseInt(document.getElementById('daysBack').value) || 7;
+  const selectedTeam = TEAM.filter((m, i) => document.getElementById(`tm${i}`).checked);
+
+  hideError();
+
+  if (selectedTeam.length === 0) return showError('Please select at least one team member.');
+
+  const btn = document.getElementById('scanBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spinner"></span>Scanning arXiv...';
+  document.getElementById('progressSection').style.display = 'block';
+
+  try {
+    setStatus('Searching arXiv...', 5);
+
+    const papers = await searchArxiv(selectedTeam, daysBack);
+
+    if (papers.length === 0) {
+      setStatus('No papers found.', 100);
+      document.getElementById('inputSection').style.display = 'none';
+      showResultsContainer([], daysBack);
+      btn.disabled = false;
+      btn.innerHTML = 'Scan arXiv and Generate Materials';
+      return;
+    }
+
+    setStatus(`Found ${papers.length} paper(s). Generating materials...`, 25);
+
+    document.getElementById('inputSection').style.display = 'none';
+    showResultsContainer(papers, daysBack);
+
+    for (let i = 0; i < papers.length; i++) {
+      const pct = 25 + Math.round((i / papers.length) * 70);
+      setStatus(`Processing paper ${i + 1} of ${papers.length}...`, pct);
+      await processPaper(papers[i], i);
+    }
+
+    setStatus('All done.', 100);
+    btn.disabled = false;
+    btn.innerHTML = 'Scan arXiv and Generate Materials';
+
+  } catch(err) {
+    showError('Error: ' + err.message);
+    btn.disabled = false;
+    btn.innerHTML = 'Scan arXiv and Generate Materials';
+    document.getElementById('progressSection').style.display = 'none';
+  }
+}
+
+async function searchArxiv(teamMembers, daysBack) {
+  const names = teamMembers.map(m => m.name);
+
+  const response = await fetch('/api/arxiv', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ names, daysBack })
+  });
+
+  if (!response.ok) throw new Error('arXiv search failed');
+  const data = await response.json();
+
+  const parser = new DOMParser();
+  const xml = parser.parseFromString(data.xml, 'text/xml');
+  const entries = Array.from(xml.querySelectorAll('entry'));
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - daysBack);
+
+  const papers = [];
+  const seenIds = new Set();
+
+  for (const entry of entries) {
+    const published = new Date(entry.querySelector('published')?.textContent || '');
+    if (published < cutoff) continue;
+
+    const id = entry.querySelector('id')?.textContent?.trim() || '';
+    if (seenIds.has(id)) continue;
+    seenIds.add(id);
+
+    const title = entry.querySelector('title')?.textContent?.trim().replace(/\s+/g, ' ') || '';
+    const summary = entry.querySelector('summary')?.textContent?.trim() || '';
+    const authorEls = Array.from(entry.querySelectorAll('author name'));
+    const authors = authorEls.map(a => a.textContent.trim());
+
+    const categories = Array.from(entry.querySelectorAll('category'))
+      .map(c => c.getAttribute('term') || '')
+      .filter(c => c.startsWith('astro-ph'));
+    if (categories.length === 0) continue;
+
+    const matchedMembers = [];
+    for (const member of teamMembers) {
+      for (const variant of member.arxivNames) {
+        const parts = variant.split(', ');
+        const lastName = parts[0];
+        const firstInit = parts[1] ? parts[1].charAt(0).toLowerCase() : null;
+        const matches = authors.some(a => {
+          const aLower = a.toLowerCase();
+          if (!aLower.includes(lastName.toLowerCase())) return false;
+          if (firstInit) {
+            const nameParts = a.split(' ');
+            const first = nameParts[nameParts.length - 1] || nameParts[0];
+            return first.toLowerCase().startsWith(firstInit);
+          }
+          return true;
+        });
+        if (matches && !matchedMembers.find(m => m.name === member.name)) {
+          matchedMembers.push(member);
+          break;
+        }
+      }
+    }
+
+    if (matchedMembers.length === 0) continue;
+
+    const arxivId = id.replace('http://arxiv.org/abs/', '').replace('https://arxiv.org/abs/', '');
+
+    papers.push({
+      id: arxivId,
+      title,
+      summary,
+      authors,
+      matchedMembers,
+      published,
+      arxivUrl: `https://arxiv.org/abs/${arxivId}`,
+    });
+  }
+
+  return papers;
+}
+
+function showResultsContainer(papers, daysBack) {
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('summaryTitle').textContent = papers.length === 0
+    ? 'No papers found'
+    : `${papers.length} paper${papers.length > 1 ? 's' : ''} found`;
+  document.getElementById('summaryText').textContent =
+    `arXiv scan · last ${daysBack} day${daysBack > 1 ? 's' : ''} · astro-ph`;
+
+  const container = document.getElementById('papersContainer');
+  container.innerHTML = '';
+
+  if (papers.length === 0) {
+    container.innerHTML = '<div class="no-papers">No astro-ph papers by DARK team members found in this time window.</div>';
+    return;
+  }
+
+  papers.forEach((paper, i) => {
+    const div = document.createElement('div');
+    div.className = 'paper-result';
+    div.id = `paper-${i}`;
+    div.innerHTML = `
+      <div class="paper-header">
+        <div style="flex:1;min-width:0;">
+          <div class="meta">
+            ${paper.matchedMembers.map(m => m.name).join(', ')} ·
+            ${paper.published.toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'})} ·
+            <a href="${paper.arxivUrl}" target="_blank" class="arxiv-link">${paper.id}</a>
+          </div>
+          <h3>${paper.title}</h3>
+        </div>
+        <span class="status-badge generating" id="badge-${i}">Generating...</span>
+      </div>
+      <div class="paper-body" id="body-${i}">
+        <div class="status-log" id="paperstatus-${i}">Generating communications materials...</div>
+      </div>`;
+    container.appendChild(div);
+  });
+}
+
+async function processPaper(paper, index) {
+  const bodyEl = document.getElementById(`body-${index}`);
+  const badgeEl = document.getElementById(`badge-${index}`);
+
+  try {
+    const matchedNames = paper.matchedMembers.map(m => m.name).join(', ');
+    const leadResearcher = paper.matchedMembers[0]?.name || paper.authors[0];
+
+    const systemPrompt = `You are a science communications specialist for DARK at the Niels Bohr Institute (NBI) in Copenhagen.
+
+STRICT WRITING RULES:
+- No em-dashes (—) anywhere. Ever. This is a complete failure if it appears.
+- No rhetorical questions anywhere. Declarative statements only.
+- No listicle constructions like "The result:", "Key finding:".
+- No AI hype words: "groundbreaking", "landmark", "revolutionary", "exciting", "fascinating", "delve", "crucial", "vital", "moreover", "furthermore", "showcasing", "game-changer", "cutting-edge", "shed light on", "pave the way", "novel", "so-called".
+- No inaccurate metaphors. Scientifically precise language only.
+- No emojis anywhere.
+- Short sentences. Plain words. Concise.
+- Mentions of collaborators and funding flow naturally in text. Never list separately.
+- Never invent quotes.
+- Always refer to the group as DARK at the Niels Bohr Institute.
+- Never write "The Niels Bohr Institute is part of the University of Copenhagen."
+
+PRESS RELEASE: APS Physics synopsis style. Narrative, context to result. Briefly explain technical terms. Search your knowledge for existing press releases on this paper title and use their register as inspiration.
+LINKEDIN: Open with "Excited to share..." or "Happy to share...". First person. Warm. @VILLUM FONDEN mentioned naturally if applicable.
+INSTAGRAM: Science outreach style. Informative, grounded. No drama.
+IMAGE SUGGESTIONS: Only suggest images at direct URLs you are certain exist from NASA, ESA, or Wikimedia Commons. No search pages.
+
+Respond ONLY with valid JSON, no markdown, no backticks.`;
+
+    const userPrompt = `Read this paper and produce communications materials.
+
+DARK team members who are authors: ${matchedNames}
+Lead researcher for LinkedIn: ${leadResearcher}
+Funding: VILLUM FONDEN
+
+Title: ${paper.title}
+Authors: ${paper.authors.join(', ')}
+arXiv ID: ${paper.id}
+Published: ${paper.published.toISOString().split('T')[0]}
+arXiv URL: ${paper.arxivUrl}
+
+Abstract:
+${paper.summary}
+
+Note: This is based on the arXiv abstract. If you recognise this paper as published, use the published journal details.
+
+Return JSON with this structure:
+{
+  "paperTitle": "exact title",
+  "authors": "full author list",
+  "pressRelease": {
+    "headline": "clean headline based on field conventions",
+    "subheadline": "one plain sentence",
+    "body": "200-280 words. APS style. No em-dashes. No hype.",
+    "figureRecommendation1": "best figure recommendation",
+    "figureRecommendation2": "second best figure recommendation"
+  },
+  "linkedin": [
+    ${paper.matchedMembers.map(m => `{
+      "authorName": "${m.name}",
+      "body": "120-160 words. First person as ${m.name}. Warm opening. @VILLUM FONDEN if relevant. Image credit at end."
+    }`).join(',\n    ')}
+  ],
+  "instagram": {
+    "body": "100-130 words. Science outreach. No emojis. No drama. DARK, Niels Bohr Institute mentioned. Image credit before hashtags.",
+    "hashtag1": "field-specific hashtag without #",
+    "hashtag2": "broader hashtag without #",
+    "imageFromPaper": {
+      "recommendation": "ideal figure description",
+      "credit": "credit line"
+    }
+  },
+  "imageSuggestions": [
+    {
+      "option": 1,
+      "recommendation": "description and scientific relevance",
+      "directUrl": "specific direct URL you are certain exists, or empty string",
+      "creditLine": "exact credit"
+    },
+    {
+      "option": 2,
+      "recommendation": "description",
+      "directUrl": "direct URL or empty string",
+      "creditLine": "credit"
+    }
+  ]
+}`;
+
+    const response = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-opus-4-5',
+        max_tokens: 8000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || `API error ${response.status}`);
+    }
+
+    const data = await response.json();
+    const rawText = data.content.map(b => b.text || '').join('');
+    const cleaned = rawText.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+
+    badgeEl.className = 'status-badge sending';
+    badgeEl.textContent = 'Sending emails...';
+
+    await sendEmails(paper, parsed);
+
+    renderPaperResult(bodyEl, paper, parsed);
+    badgeEl.className = 'status-badge sent';
+    badgeEl.textContent = 'Sent';
+
+  } catch(err) {
+    bodyEl.innerHTML = `<div style="color:var(--red);padding:16px;font-size:13px;">Error: ${err.message}</div>`;
+    badgeEl.className = 'status-badge error';
+    badgeEl.textContent = 'Error';
+  }
+}
+
+async function sendEmails(paper, data) {
+  const pr = data.pressRelease;
+  const ig = data.instagram;
+  const linkedinPosts = Array.isArray(data.linkedin) ? data.linkedin : [];
+
+  const imgText = (data.imageSuggestions || []).map(img =>
+    `Option ${img.option}: ${img.recommendation}\nLink: ${img.directUrl || 'Not available'}\nCredit: ${img.creditLine}`
+  ).join('\n\n');
+
+  for (const member of paper.matchedMembers) {
+    const lp = linkedinPosts.find(p => p.authorName === member.name);
+
+    await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+      to_email: member.email,
+      author_name: member.name,
+      paper_title: data.paperTitle || paper.title,
+      authors: data.authors || paper.authors.join(', '),
+      arxiv_link: paper.arxivUrl,
+      press_release: `${pr.headline}\n${pr.subheadline}\n\n${pr.body}\n\nFigure 1: ${pr.figureRecommendation1}\nFigure 2: ${pr.figureRecommendation2}`,
+      linkedin_post: lp ? lp.body : '',
+      instagram_post: `${ig.body}\n\n#${ig.hashtag1} #${ig.hashtag2} #NielsBohrInstitute #Science`,
+      image_suggestions: imgText,
+      cc_email: CC_EMAIL,
+      name: 'DARK SoMe Agent',
+      email: CC_EMAIL
+    });
+  }
+}
+
+function renderPaperResult(bodyEl, paper, data) {
+  const pr = data.pressRelease;
+  const ig = data.instagram;
+  const linkedinPosts = Array.isArray(data.linkedin) ? data.linkedin : [];
+
+  let html = `
+    <div class="section-label">Press Release</div>
+    <div class="result-text">${pr.headline}\n${pr.subheadline}\n\n${pr.body}</div>
+    <div class="image-rec">
+      <strong>Figure 1:</strong> ${pr.figureRecommendation1}<br><br>
+      <strong>Figure 2:</strong> ${pr.figureRecommendation2}
+    </div>`;
+
+  linkedinPosts.forEach(lp => {
+    html += `
+    <div class="divider"></div>
+    <div class="section-label">LinkedIn — ${lp.authorName}</div>
+    <div class="result-text">${lp.body}</div>`;
+  });
+
+  html += `
+    <div class="divider"></div>
+    <div class="section-label">Instagram</div>
+    <div class="result-text">${ig.body}</div>
+    <div class="hashtags">
+      <span class="hashtag">#${ig.hashtag1}</span>
+      <span class="hashtag">#${ig.hashtag2}</span>
+      <span class="hashtag">#NielsBohrInstitute</span>
+      <span class="hashtag">#Science</span>
+    </div>`;
+
+  if (ig.imageFromPaper) {
+    html += `<div class="image-rec">
+      <strong>Figure from paper:</strong> ${ig.imageFromPaper.recommendation}<br>
+      <strong>Credit:</strong> ${ig.imageFromPaper.credit}
+    </div>`;
+  }
+
+  const imgs = data.imageSuggestions || [];
+  if (imgs.length > 0) {
+    html += `<div class="divider"></div><div class="section-label">Image Suggestions</div>`;
+    imgs.forEach(img => {
+      html += `<div class="image-rec" style="margin-bottom:10px;">
+        <strong>Option ${img.option}:</strong> ${img.recommendation}<br>
+        ${img.directUrl ? `<strong>Link:</strong> <a href="${img.directUrl}" target="_blank">${img.directUrl}</a><br>` : ''}
+        <strong>Credit:</strong> ${img.creditLine}
+      </div>`;
+    });
+  }
+
+  bodyEl.innerHTML = html;
+}
+
+function setStatus(msg, pct) {
+  document.getElementById('statusLog').textContent = msg;
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorBox');
+  el.textContent = '⚠ ' + msg;
+  el.classList.add('visible');
+}
+
+function hideError() {
+  document.getElementById('errorBox').classList.remove('visible');
+}
+
+function resetForm() {
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('inputSection').style.display = 'block';
+  document.getElementById('progressSection').style.display = 'none';
+  document.getElementById('progressFill').style.width = '0%';
+}
+</script>
+</body>
+</html>
