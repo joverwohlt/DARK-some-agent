@@ -343,6 +343,15 @@
       </div>
       <button class="btn-secondary" onclick="resetForm()" style="border-color:rgba(255,255,255,0.4);color:white;">← New Scan</button>
     </div>
+    <div id="generateBar" style="display:none;background:var(--green);border-radius:8px;padding:20px 28px;margin-bottom:24px;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div>
+        <h3 style="color:white;font-size:16px;margin-bottom:4px;">Papers found</h3>
+        <p style="color:rgba(255,255,255,0.8);font-size:13px;">Review the papers above, then generate communications materials and send emails.</p>
+      </div>
+      <button class="btn-primary" id="generateBtn" onclick="generateAll()" style="width:auto;background:white;color:var(--green);font-weight:700;">
+        Generate Materials &amp; Send Emails
+      </button>
+    </div>
     <div id="papersContainer"></div>
   </div>
 
@@ -416,18 +425,12 @@ async function startScan() {
       return;
     }
 
-    setStatus(`Found ${papers.length} paper(s). Generating materials...`, 25);
+    setStatus(`Found ${papers.length} paper(s). Review below, then click Generate.`, 100);
 
     document.getElementById('inputSection').style.display = 'none';
+    document.getElementById('progressSection').style.display = 'none';
     showResultsContainer(papers, daysBack);
 
-    for (let i = 0; i < papers.length; i++) {
-      const pct = 25 + Math.round((i / papers.length) * 70);
-      setStatus(`Processing paper ${i + 1} of ${papers.length}...`, pct);
-      await processPaper(papers[i], i);
-    }
-
-    setStatus('All done.', 100);
     btn.disabled = false;
     btn.innerHTML = 'Scan arXiv and Generate Materials';
 
@@ -451,76 +454,92 @@ async function searchArxiv(teamMembers, daysBack) {
   if (!response.ok) throw new Error('arXiv search failed');
   const data = await response.json();
 
-  const parser = new DOMParser();
-  const xml = parser.parseFromString(data.xml, 'text/xml');
-  const entries = Array.from(xml.querySelectorAll('entry'));
-
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - daysBack);
 
   const papers = [];
   const seenIds = new Set();
 
-  for (const entry of entries) {
-    const published = new Date(entry.querySelector('published')?.textContent || '');
-    if (published < cutoff) continue;
+  // Parse both XML feeds
+  const xmlFeeds = [data.xml1, data.xml2].filter(Boolean);
 
-    const id = entry.querySelector('id')?.textContent?.trim() || '';
-    if (seenIds.has(id)) continue;
-    seenIds.add(id);
+  for (const xmlText of xmlFeeds) {
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(xmlText, 'text/xml');
+    const entries = Array.from(xml.querySelectorAll('entry'));
 
-    const title = entry.querySelector('title')?.textContent?.trim().replace(/\s+/g, ' ') || '';
-    const summary = entry.querySelector('summary')?.textContent?.trim() || '';
-    const authorEls = Array.from(entry.querySelectorAll('author name'));
-    const authors = authorEls.map(a => a.textContent.trim());
+    for (const entry of entries) {
+      const published = new Date(entry.querySelector('published')?.textContent || '');
+      if (published < cutoff) continue;
 
-    const categories = Array.from(entry.querySelectorAll('category'))
-      .map(c => c.getAttribute('term') || '')
-      .filter(c => c.startsWith('astro-ph'));
-    if (categories.length === 0) continue;
+      const id = entry.querySelector('id')?.textContent?.trim() || '';
+      if (seenIds.has(id)) continue;
+      seenIds.add(id);
 
-    const matchedMembers = [];
-    for (const member of teamMembers) {
-      for (const variant of member.arxivNames) {
-        const parts = variant.split(', ');
-        const lastName = parts[0];
-        const firstInit = parts[1] ? parts[1].charAt(0).toLowerCase() : null;
-        const matches = authors.some(a => {
+      const title = entry.querySelector('title')?.textContent?.trim().replace(/\s+/g, ' ') || '';
+      const summary = entry.querySelector('summary')?.textContent?.trim() || '';
+      const authorEls = Array.from(entry.querySelectorAll('author'));
+      const authors = authorEls.map(a => a.querySelector('name')?.textContent?.trim() || '');
+
+      // Get affiliations from author elements (arXiv includes these in the API)
+      const affiliations = authorEls.map(a => {
+        const affil = a.querySelector('arxiv\\:affiliation, affiliation');
+        return affil?.textContent?.trim() || '';
+      });
+      const allAffiliations = affiliations.join(' ').toLowerCase();
+
+      const categories = Array.from(entry.querySelectorAll('category'))
+        .map(c => c.getAttribute('term') || '')
+        .filter(c => c.startsWith('astro-ph'));
+      if (categories.length === 0) continue;
+
+      // Match team members by name OR affiliation
+      const matchedMembers = [];
+      for (const member of teamMembers) {
+        const lastName = member.name.split(' ').pop().toLowerCase();
+        const firstName = member.name.split(' ')[0].toLowerCase();
+
+        // Check by author name
+        const nameMatch = authors.some(a => {
           const aLower = a.toLowerCase();
-          if (!aLower.includes(lastName.toLowerCase())) return false;
-          if (firstInit) {
-            const nameParts = a.split(' ');
-            const first = nameParts[nameParts.length - 1] || nameParts[0];
-            return first.toLowerCase().startsWith(firstInit);
-          }
-          return true;
+          return aLower.includes(lastName) && aLower.charAt(0) === firstName.charAt(0) ||
+                 aLower.includes(lastName) && aLower.includes(firstName.substring(0, 2));
         });
-        if (matches && !matchedMembers.find(m => m.name === member.name)) {
+
+        // Check by affiliation keywords (Jagtvej or DARK or nbi.ku.dk)
+        const affilMatch = allAffiliations.includes('jagtvej') ||
+                           allAffiliations.includes('dark') ||
+                           allAffiliations.includes('nbi.ku.dk');
+
+        // Match if name appears in authors AND (affiliation matches OR it's from our author search)
+        if (nameMatch && !matchedMembers.find(m => m.name === member.name)) {
           matchedMembers.push(member);
-          break;
         }
       }
+
+      if (matchedMembers.length === 0) continue;
+
+      const arxivId = id.replace('http://arxiv.org/abs/', '').replace('https://arxiv.org/abs/', '');
+
+      papers.push({
+        id: arxivId,
+        title,
+        summary,
+        authors,
+        matchedMembers,
+        published,
+        arxivUrl: `https://arxiv.org/abs/${arxivId}`,
+      });
     }
-
-    if (matchedMembers.length === 0) continue;
-
-    const arxivId = id.replace('http://arxiv.org/abs/', '').replace('https://arxiv.org/abs/', '');
-
-    papers.push({
-      id: arxivId,
-      title,
-      summary,
-      authors,
-      matchedMembers,
-      published,
-      arxivUrl: `https://arxiv.org/abs/${arxivId}`,
-    });
   }
 
   return papers;
 }
 
+let foundPapers = [];
+
 function showResultsContainer(papers, daysBack) {
+  foundPapers = papers;
   document.getElementById('results').style.display = 'block';
   document.getElementById('summaryTitle').textContent = papers.length === 0
     ? 'No papers found'
@@ -533,8 +552,12 @@ function showResultsContainer(papers, daysBack) {
 
   if (papers.length === 0) {
     container.innerHTML = '<div class="no-papers">No astro-ph papers by DARK team members found in this time window.</div>';
+    document.getElementById('generateBar').style.display = 'none';
     return;
   }
+
+  // Show generate button bar
+  document.getElementById('generateBar').style.display = 'flex';
 
   papers.forEach((paper, i) => {
     const div = document.createElement('div');
@@ -550,13 +573,30 @@ function showResultsContainer(papers, daysBack) {
           </div>
           <h3>${paper.title}</h3>
         </div>
-        <span class="status-badge generating" id="badge-${i}">Generating...</span>
+        <span class="status-badge" id="badge-${i}" style="background:#555;color:white;">Pending</span>
       </div>
       <div class="paper-body" id="body-${i}">
-        <div class="status-log" id="paperstatus-${i}">Generating communications materials...</div>
+        <p style="color:var(--muted);font-size:13px;line-height:1.6;">${paper.summary.substring(0, 300)}...</p>
       </div>`;
     container.appendChild(div);
   });
+}
+
+async function generateAll() {
+  const genBtn = document.getElementById('generateBtn');
+  genBtn.disabled = true;
+  genBtn.innerHTML = '<span class="loading-spinner"></span>Generating...';
+  document.getElementById('generateBar').style.display = 'none';
+
+  for (let i = 0; i < foundPapers.length; i++) {
+    document.getElementById(`badge-${i}`).className = 'status-badge generating';
+    document.getElementById(`badge-${i}`).textContent = 'Generating...';
+    document.getElementById(`body-${i}`).innerHTML = '<div class="status-log">Generating communications materials...</div>';
+    await processPaper(foundPapers[i], i);
+  }
+
+  genBtn.disabled = false;
+  genBtn.innerHTML = 'Generate Materials';
 }
 
 async function processPaper(paper, index) {

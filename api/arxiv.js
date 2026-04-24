@@ -9,24 +9,27 @@ export default async function handler(req, res) {
   const { names, daysBack } = req.body;
 
   try {
-    // Search each person individually using last name + first initial for precision
-    const authorVariants = names.map(n => {
-      const parts = n.trim().split(' ');
-      const last = parts[parts.length - 1];
-      const first = parts[0];
-      // Use "last_first" format arXiv supports
-      return `au:${last}_${first.charAt(0)}`;
-    });
+    // Search by affiliation (DARK NBI) + astro-ph, then filter by name client-side
+    // This is more reliable than author name search which has matching issues
+    const affiliationQuery = 'ti:DARK+AND+cat:astro-ph*';
 
-    const authorQuery = [...new Set(authorVariants)].join('+OR+');
-    const query = `(${authorQuery})+AND+cat:astro-ph*`;
-    const url = `https://export.arxiv.org/api/query?search_query=${query}&start=0&max_results=200&sortBy=submittedDate&sortOrder=descending`;
+    // Also do a parallel author-name search for each person
+    const lastNames = [...new Set(names.map(n => n.split(' ').pop()))];
+    const authorQuery = lastNames.map(n => `au:${n}`).join('+OR+');
+    const combinedQuery = `(${authorQuery})+AND+cat:astro-ph*`;
 
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('arXiv fetch failed');
+    // Fetch both queries and merge results
+    const [r1, r2] = await Promise.all([
+      fetch(`https://export.arxiv.org/api/query?search_query=${combinedQuery}&start=0&max_results=200&sortBy=submittedDate&sortOrder=descending`),
+      fetch(`https://export.arxiv.org/api/query?search_query=af:Jagtvej+AND+cat:astro-ph*&start=0&max_results=200&sortBy=submittedDate&sortOrder=descending`)
+    ]);
 
-    const text = await response.text();
-    return res.status(200).json({ xml: text });
+    if (!r1.ok && !r2.ok) throw new Error('arXiv fetch failed');
+
+    const text1 = r1.ok ? await r1.text() : '<feed></feed>';
+    const text2 = r2.ok ? await r2.text() : '<feed></feed>';
+
+    return res.status(200).json({ xml1: text1, xml2: text2 });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
