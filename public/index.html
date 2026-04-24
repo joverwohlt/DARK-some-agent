@@ -349,7 +349,7 @@
         <p style="color:rgba(255,255,255,0.8);font-size:13px;">Review the papers above, then generate communications materials and send emails.</p>
       </div>
       <button class="btn-primary" id="generateBtn" onclick="generateAll()" style="width:auto;background:white;color:var(--green);font-weight:700;">
-        Generate Materials &amp; Send Emails
+        Generate All &amp; Send Emails
       </button>
     </div>
     <div id="papersContainer"></div>
@@ -563,17 +563,24 @@ function showResultsContainer(papers, daysBack) {
     const div = document.createElement('div');
     div.className = 'paper-result';
     div.id = `paper-${i}`;
+    const isFirstAuthor = paper.matchedMembers.some(m =>
+      paper.authors[0]?.toLowerCase().includes(m.name.split(' ').pop().toLowerCase())
+    );
     div.innerHTML = `
       <div class="paper-header">
         <div style="flex:1;min-width:0;">
           <div class="meta">
+            ${isFirstAuthor ? '<span style="background:var(--red);color:white;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;margin-right:6px;">FIRST AUTHOR</span>' : ''}
             ${paper.matchedMembers.map(m => m.name).join(', ')} ·
             ${paper.published.toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'})} ·
             <a href="${paper.arxivUrl}" target="_blank" class="arxiv-link">${paper.id}</a>
           </div>
           <h3>${paper.title}</h3>
         </div>
-        <span class="status-badge" id="badge-${i}" style="background:#555;color:white;">Pending</span>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+          <span class="status-badge" id="badge-${i}" style="background:#555;color:white;">Pending</span>
+          <button onclick="generateSingle(${i})" id="genbtn-${i}" style="background:var(--red);color:white;border:none;padding:7px 14px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;">Generate</button>
+        </div>
       </div>
       <div class="paper-body" id="body-${i}">
         <p style="color:var(--muted);font-size:13px;line-height:1.6;">${paper.summary.substring(0, 300)}...</p>
@@ -582,21 +589,43 @@ function showResultsContainer(papers, daysBack) {
   });
 }
 
+async function generateSingle(i) {
+  const btn = document.getElementById(`genbtn-${i}`);
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spinner"></span>';
+  btn.style.minWidth = '80px';
+  document.getElementById(`badge-${i}`).className = 'status-badge generating';
+  document.getElementById(`badge-${i}`).textContent = 'Generating...';
+  document.getElementById(`body-${i}`).innerHTML = '<div class="status-log">Generating communications materials...</div>';
+  await processPaper(foundPapers[i], i);
+  btn.style.display = 'none';
+}
+
 async function generateAll() {
   const genBtn = document.getElementById('generateBtn');
   genBtn.disabled = true;
-  genBtn.innerHTML = '<span class="loading-spinner"></span>Generating...';
+  genBtn.innerHTML = '<span class="loading-spinner"></span>Generating all...';
   document.getElementById('generateBar').style.display = 'none';
 
+  // Disable all individual buttons
+  foundPapers.forEach((p, i) => {
+    const b = document.getElementById(`genbtn-${i}`);
+    if (b) b.disabled = true;
+  });
+
   for (let i = 0; i < foundPapers.length; i++) {
-    document.getElementById(`badge-${i}`).className = 'status-badge generating';
-    document.getElementById(`badge-${i}`).textContent = 'Generating...';
+    const badge = document.getElementById(`badge-${i}`);
+    if (badge.textContent === 'Sent') continue; // skip already generated
+    badge.className = 'status-badge generating';
+    badge.textContent = 'Generating...';
     document.getElementById(`body-${i}`).innerHTML = '<div class="status-log">Generating communications materials...</div>';
     await processPaper(foundPapers[i], i);
+    const b = document.getElementById(`genbtn-${i}`);
+    if (b) b.style.display = 'none';
   }
 
   genBtn.disabled = false;
-  genBtn.innerHTML = 'Generate Materials';
+  genBtn.innerHTML = 'Generate All & Send Emails';
 }
 
 async function processPaper(paper, index) {
