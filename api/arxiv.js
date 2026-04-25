@@ -6,30 +6,34 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { names, daysBack } = req.body;
+  const { daysBack } = req.body;
 
   try {
-    // Search by affiliation (DARK NBI) + astro-ph, then filter by name client-side
-    // This is more reliable than author name search which has matching issues
-    const affiliationQuery = 'ti:DARK+AND+cat:astro-ph*';
+    // PRIMARY STRATEGY: Search by NBI/DARK affiliation keywords
+    // af: field searches affiliation strings embedded in the paper metadata
+    const affilQueries = [
+      'af:Jagtvej+AND+cat:astro-ph*',
+      'af:%22Niels+Bohr+Institute%22+AND+cat:astro-ph*',
+      'af:DARK+AND+af:Copenhagen+AND+cat:astro-ph*'
+    ];
 
-    // Also do a parallel author-name search for each person
-    const lastNames = [...new Set(names.map(n => n.split(' ').pop()))];
-    const authorQuery = lastNames.map(n => `au:${n}`).join('+OR+');
-    const combinedQuery = `(${authorQuery})+AND+cat:astro-ph*`;
+    const results = await Promise.allSettled(
+      affilQueries.map(q =>
+        fetch(`https://export.arxiv.org/api/query?search_query=${q}&start=0&max_results=200&sortBy=submittedDate&sortOrder=descending`)
+          .then(r => r.ok ? r.text() : '<feed></feed>')
+          .catch(() => '<feed></feed>')
+      )
+    );
 
-    // Fetch both queries and merge results
-    const [r1, r2] = await Promise.all([
-      fetch(`https://export.arxiv.org/api/query?search_query=${combinedQuery}&start=0&max_results=200&sortBy=submittedDate&sortOrder=descending`),
-      fetch(`https://export.arxiv.org/api/query?search_query=af:Jagtvej+AND+cat:astro-ph*&start=0&max_results=200&sortBy=submittedDate&sortOrder=descending`)
-    ]);
+    const xmlResults = results
+      .filter(r => r.status === 'fulfilled')
+      .map(r => r.value);
 
-    if (!r1.ok && !r2.ok) throw new Error('arXiv fetch failed');
+    if (xmlResults.every(x => x === '<feed></feed>')) {
+      throw new Error('arXiv affiliation search returned no results');
+    }
 
-    const text1 = r1.ok ? await r1.text() : '<feed></feed>';
-    const text2 = r2.ok ? await r2.text() : '<feed></feed>';
-
-    return res.status(200).json({ xml1: text1, xml2: text2 });
+    return res.status(200).json({ xmlResults });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

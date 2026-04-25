@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBI Science Communications Agent</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --nbi-red: #c0392b;
+    --nbi-dark: #1a1a2e;
+    --nbi-mid: #2d2d44;
+    --nbi-light: #f4f4f0;
+    --nbi-accent: #e8e0d0;
+    --text: #1a1a1a;
+    --muted: #666;
+    --border: #ddd;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--nbi-light);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--nbi-dark);
+    color: white;
+    padding: 24px 40px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    border-bottom: 3px solid var(--nbi-red);
+  }
+
+  .nbi-logo {
+    width: 48px;
+    height: 48px;
+    background: var(--nbi-red);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 1px;
+  }
+
+  header h1 {
+    font-size: 20px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+  }
+
+  header p {
+    font-size: 13px;
+    color: #aaa;
+    margin-top: 2px;
+  }
+
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+
+  .api-bar {
+    background: var(--nbi-mid);
+    color: white;
+    padding: 14px 40px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+  }
+
+  .api-bar input {
+    flex: 1;
+    max-width: 380px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: 1px solid #555;
+    background: #1a1a2e;
+    color: white;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+  }
+
+  .api-bar label { color: #ccc; white-space: nowrap; }
+
+  .api-bar .api-note {
+    color: #888;
+    font-size: 11px;
+    margin-left: 8px;
+  }
+
+  .card {
+    background: white;
+    border-radius: 8px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+
+  .card h2 {
+    font-size: 15px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--nbi-red);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-group.full { grid-column: 1 / -1; }
+
+  label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+  }
+
+  input[type="text"], textarea {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    background: #fafafa;
+    transition: border-color 0.2s;
+    resize: vertical;
+  }
+
+  input[type="text"]:focus, textarea:focus {
+    outline: none;
+    border-color: var(--nbi-red);
+    background: white;
+  }
+
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #fafafa;
+  }
+
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--nbi-red);
+    background: #fff5f5;
+  }
+
+  .upload-zone.has-file {
+    border-color: #2ecc71;
+    background: #f0fff4;
+  }
+
+  .upload-zone input { display: none; }
+
+  .upload-icon {
+    font-size: 32px;
+    margin-bottom: 10px;
+  }
+
+  .upload-zone p {
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  .upload-zone .filename {
+    font-weight: 600;
+    color: #2ecc71;
+    margin-top: 6px;
+    font-size: 14px;
+  }
+
+  .btn-primary {
+    background: var(--nbi-red);
+    color: white;
+    border: none;
+    padding: 14px 36px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    width: 100%;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: #a93226;
+    transform: translateY(-1px);
+  }
+
+  .btn-primary:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--nbi-red);
+    border: 1px solid var(--nbi-red);
+    padding: 8px 20px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-secondary:hover {
+    background: var(--nbi-red);
+    color: white;
+  }
+
+  .progress-bar {
+    background: var(--border);
+    border-radius: 4px;
+    height: 6px;
+    margin: 16px 0;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--nbi-red);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+    width: 0%;
+  }
+
+  .status-log {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    padding: 12px 16px;
+    background: #f8f8f8;
+    border-radius: 6px;
+    border-left: 3px solid var(--nbi-red);
+    min-height: 44px;
+    display: none;
+  }
+
+  .status-log.visible { display: block; }
+
+  #results { display: none; }
+
+  .result-section {
+    background: white;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    margin-bottom: 20px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+
+  .result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    background: var(--nbi-dark);
+    color: white;
+  }
+
+  .result-header h3 {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .result-header .platform-tag {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    background: var(--nbi-red);
+    font-weight: 600;
+  }
+
+  .result-body {
+    padding: 24px;
+  }
+
+  .result-text {
+    white-space: pre-wrap;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+
+  .image-recommendation {
+    background: var(--nbi-accent);
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin-top: 16px;
+    border-left: 3px solid var(--nbi-red);
+  }
+
+  .image-recommendation h4 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 600;
+    color: var(--nbi-red);
+    margin-bottom: 8px;
+  }
+
+  .image-recommendation p {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #444;
+  }
+
+  .image-recommendation a {
+    color: var(--nbi-red);
+    word-break: break-all;
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 16px 0;
+  }
+
+  /* Social card previews */
+  .social-card-container {
+    margin-top: 20px;
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+  }
+
+  .social-card-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .social-card-wrapper {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  canvas {
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    max-width: 100%;
+  }
+
+  .download-btn {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 6px 16px;
+    background: var(--nbi-dark);
+    color: white;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    border: none;
+    font-family: 'IBM Plex Sans', sans-serif;
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+
+  .download-btn:hover { background: var(--nbi-red); }
+
+  .download-all-bar {
+    background: var(--nbi-dark);
+    border-radius: 8px;
+    padding: 20px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+    color: white;
+  }
+
+  .download-all-bar p { font-size: 14px; color: #ccc; }
+  .download-all-bar h3 { font-size: 16px; margin-bottom: 4px; }
+
+  .download-all-btn {
+    background: var(--nbi-red);
+    color: white;
+    border: none;
+    padding: 12px 28px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .download-all-btn:hover { background: #a93226; }
+
+  .error-box {
+    background: #fff5f5;
+    border: 1px solid #faa;
+    border-radius: 6px;
+    padding: 14px 18px;
+    color: #c0392b;
+    font-size: 13px;
+    margin-top: 12px;
+    display: none;
+  }
+
+  .error-box.visible { display: block; }
+
+  .hashtags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+
+  .hashtag {
+    background: var(--nbi-accent);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--nbi-dark);
+  }
+
+  .loading-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .step-indicator {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 28px;
+    align-items: center;
+  }
+
+  .step {
+    flex: 1;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    transition: background 0.3s;
+  }
+
+  .step.active { background: var(--nbi-red); }
+  .step.done { background: #2ecc71; }
+
+  .instructions {
+    background: var(--nbi-accent);
+    border-radius: 6px;
+    padding: 14px 18px;
+    font-size: 13px;
+    color: #555;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+
+  .instructions strong { color: var(--text); }
+
+  @media (max-width: 600px) {
+    .form-row { grid-template-columns: 1fr; }
+    header { padding: 16px 20px; }
+    .container { padding: 24px 16px; }
+    .api-bar { padding: 12px 20px; flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nbi-logo">NBI</div>
+  <div>
+    <h1>Science Communications Agent</h1>
+    <p>Niels Bohr Institute · Research Outreach Tool</p>
+  </div>
+</header>
+
+<div class="api-bar">
+  <label for="apiKey">API Key:</label>
+  <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off">
+  <span class="api-note">Your key is never stored or sent anywhere except Anthropic's API</span>
+</div>
+
+<div class="container">
+
+  <div class="step-indicator">
+    <div class="step active" id="step1"></div>
+    <div class="step" id="step2"></div>
+    <div class="step" id="step3"></div>
+  </div>
+
+  <!-- INPUT FORM -->
+  <div id="inputSection">
+
+    <div class="instructions">
+      <strong>How to use:</strong> Upload your scientific paper (PDF), fill in collaborators and funding agencies, then click Generate. The agent will produce a press release, LinkedIn post, Instagram post, image recommendations, and downloadable social media cards.
+    </div>
+
+    <div class="card">
+      <h2>Paper Upload</h2>
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('pdfInput').click()">
+        <input type="file" id="pdfInput" accept=".pdf">
+        <div class="upload-icon">📄</div>
+        <p>Click to upload your paper PDF</p>
+        <p style="font-size:12px; margin-top:4px;">or drag and drop here</p>
+        <div class="filename" id="filename"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Paper Details</h2>
+      <div class="form-row">
+        <div class="form-group full">
+          <label>Collaborating Institutions / Co-authors' Affiliations</label>
+          <textarea id="collaborators" rows="3" placeholder="e.g. University of Copenhagen, MIT, ESA, DTU Physics..."></textarea>
+        </div>
+        <div class="form-group full">
+          <label>Funding Agencies & Grant References</label>
+          <textarea id="funding" rows="3" placeholder="e.g. European Research Council (ERC) grant #123456, Carlsberg Foundation, Danish National Research Foundation..."></textarea>
+        </div>
+        <div class="form-group full">
+          <label>Lead Researcher Name (for LinkedIn post)</label>
+          <input type="text" id="leadResearcher" placeholder="e.g. Dr. Jane Smith">
+        </div>
+        <div class="form-group full">
+          <label>Quote from Researcher (optional — only include if you have a real quote)</label>
+          <textarea id="researcherQuote" rows="2" placeholder="e.g. 'This result shows that 21-cm observations can directly probe dark matter properties...'"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div id="errorBox" class="error-box"></div>
+
+    <div id="progressSection" style="display:none;">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="status-log visible" id="statusLog">Initialising...</div>
+    </div>
+
+    <button class="btn-primary" id="generateBtn" onclick="generate()">
+      Generate Communications Materials
+    </button>
+
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results">
+
+    <div class="download-all-bar">
+      <div>
+        <h3>Materials Ready</h3>
+        <p>Press release · LinkedIn · Instagram · Image recommendations</p>
+      </div>
+      <button class="download-all-btn" onclick="downloadAll()">Download Text File</button>
+    </div>
+
+    <br>
+
+    <!-- PRESS RELEASE -->
+    <div class="result-section">
+      <div class="result-header">
+        <h3>Press Release</h3>
+        <span class="platform-tag">NBI Website</span>
+      </div>
+      <div class="result-body">
+        <div class="result-text" id="pressReleaseText"></div>
+        <div class="image-recommendation" id="pressReleaseImg1"></div>
+        <div class="image-recommendation" id="pressReleaseImg2" style="margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <!-- LINKEDIN -->
+    <div class="result-section">
+      <div class="result-header">
+        <h3>LinkedIn Post</h3>
+        <span class="platform-tag">Personal Profile</span>
+      </div>
+      <div class="result-body">
+        <div class="result-text" id="linkedinText"></div>
+        <div class="image-recommendation" id="linkedinImg"></div>
+      </div>
+    </div>
+
+    <!-- INSTAGRAM -->
+    <div class="result-section">
+      <div class="result-header">
+        <h3>Instagram Post</h3>
+        <span class="platform-tag">Outreach</span>
+      </div>
+      <div class="result-body">
+        <div class="result-text" id="instagramText"></div>
+        <div id="instagramHashtags" class="hashtags"></div>
+        <div class="divider"></div>
+        <div class="image-recommendation" id="instagramImg1"></div>
+      </div>
+    </div>
+
+    <!-- IMAGE SUGGESTIONS -->
+    <div class="result-section">
+      <div class="result-header">
+        <h3>Image Suggestions</h3>
+        <span class="platform-tag">All Outputs</span>
+      </div>
+      <div class="result-body">
+        <div class="image-recommendation" id="imageSuggestions"></div>
+      </div>
+    </div>
+
+    <button class="btn-secondary" onclick="resetForm()" style="margin-top:8px;">← Start Over</button>
+  </div>
+
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let pdfBase64 = null;
+let generatedData = null;
+
+// ─── PDF Upload ───────────────────────────────────────────────────────────────
+const uploadZone = document.getElementById('uploadZone');
+const pdfInput = document.getElementById('pdfInput');
+
+pdfInput.addEventListener('change', handleFile);
+
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type === 'application/pdf') processFile(file);
+});
+
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (file) processFile(file);
+}
+
+function processFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    pdfBase64 = e.target.result.split(',')[1];
+    document.getElementById('filename').textContent = '✓ ' + file.name;
+    uploadZone.classList.add('has-file');
+    document.getElementById('uploadZone').querySelector('p').textContent = 'Paper loaded successfully';
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── Generate ─────────────────────────────────────────────────────────────────
+async function generate() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const collaborators = document.getElementById('collaborators').value.trim();
+  const funding = document.getElementById('funding').value.trim();
+  const leadResearcher = document.getElementById('leadResearcher').value.trim();
+  const quote = document.getElementById('researcherQuote').value.trim();
+
+  hideError();
+
+  if (!apiKey) return showError('Please enter your Anthropic API key in the bar at the top.');
+  if (!pdfBase64) return showError('Please upload a PDF of the paper.');
+
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spinner"></span>Generating...';
+
+  document.getElementById('progressSection').style.display = 'block';
+  setStep(2);
+
+  try {
+    setStatus('Reading and analysing paper...', 10);
+
+    const systemPrompt = `You are a science communications specialist for the research group DARK at the Niels Bohr Institute (NBI) in Copenhagen.
+You write clearly and accurately for the general public, scientific peers, and social media followers.
+
+STRICT WRITING RULES — follow every single one without exception:
+
+LANGUAGE AND STYLE:
+- No em-dashes (—) anywhere. Ever. Use a comma, a period, or rewrite the sentence. An em-dash appearing anywhere is a complete failure.
+- No rhetorical questions anywhere, including Instagram. Use declarative statements throughout.
+- No listicle constructions: never write "The result:", "Key finding:", "What we found:" or similar label-colon patterns.
+- No AI hype words or phrases: "groundbreaking", "landmark", "revolutionary", "exciting", "fascinating", "delve", "crucial", "vital", "testament to", "it is worth noting", "in conclusion", "moreover", "furthermore", "showcasing", "underscoring", "highlighting", "game-changer", "cutting-edge", "state-of-the-art", "shed light on", "pave the way", "new insights", "novel", "so-called", "what makes this", "representing".
+- No inaccurate metaphors or poetic language. Do not say "listening" for radio observations. Do not say "fingerprints" unless the paper uses that term. Do not say "illuminate". Be scientifically precise.
+- No sensationalism. Report findings accurately and confidently.
+- Short sentences. Plain words over formal ones.
+- Concise. Less is more.
+- Mentions of collaborators, co-authors, and funding must flow naturally as part of the text. Never list them in a stilted way. Weave them in as you would in natural writing.
+
+QUOTES:
+- Never invent quotes. Never suggest quotes. Only include a quote if one is explicitly provided as input.
+
+IDENTITY:
+- Always refer to the group as DARK at the Niels Bohr Institute.
+- Never write "The Niels Bohr Institute is part of the University of Copenhagen." That line must never appear anywhere.
+
+PRESS RELEASE STYLE:
+- Before writing, search your knowledge for any existing press releases or news coverage of this exact paper by title. If you find any, use their language register and framing as inspiration for the headline and opening.
+- Also consider how similar papers in this field have been covered. Use the title style standard for this type of discovery.
+- Model the body style on APS Physics synopsis articles: narrative, builds from scientific context to method to result, no padding.
+- The body should briefly explain any technical concept a general audience would not know, but only once and concisely.
+- Suggest the 2 best figures from the paper for the press release, with reasoning for each.
+
+LINKEDIN STYLE:
+- Open with a personal, warm line such as "Excited to share our new paper on..." or "Happy to share that our paper on... has been published in..."
+- Write in first person as the lead researcher.
+- Mentions of co-authors, collaborators, and funding should flow naturally as part of the text, not as separate tagged lines.
+- Only tag foundations provided as input with @. Funding mention should be a natural sentence integrated into the post.
+- If no funding is provided, do not mention funding.
+- No co-author institution lists.
+
+INSTAGRAM STYLE:
+- Write in the style of science outreach: informative, grounded, accurate. Not dramatic, not breathless.
+- No emojis anywhere.
+- Present the science directly. Do not try to create suspense or drama.
+
+IMAGE SUGGESTIONS:
+- You must provide direct URLs to specific, individual images that you know exist and are publicly licensed. Do not provide search page URLs. Do not provide collection or category URLs. Each suggestion must link to one specific image that can be opened and downloaded directly.
+- Only suggest images from sources where you are certain the specific image exists. Good sources: NASA Image and Video Library (images.nasa.gov/details/[ID]), ESA/Hubble (esahubble.org/images/[ID]), ESA/Webb (esawebb.org/images/[ID]), Wikimedia Commons (commons.wikimedia.org/wiki/File:[filename]).
+- For NASA: use the format images.nasa.gov/details/[image-ID] where you know the specific image ID. For example: images.nasa.gov/details/PIA16695
+- For ESA/Hubble: use esahubble.org/images/[image-ID] where you know the specific image ID. For example: esahubble.org/images/heic0910h
+- For ESA/Webb: use esawebb.org/images/[image-ID] where you know the specific image ID.
+- For Wikimedia Commons: use the direct file page URL where you know the exact filename.
+- If you are not certain a specific image exists at a specific URL, do not suggest it. It is better to suggest two confident options than three uncertain ones.
+- Focus on the science, not the instrument. The image should represent the physical phenomenon, epoch, or object studied in the paper.
+- These suggestions apply to all outputs: press release, LinkedIn, and Instagram.
+
+You must respond ONLY with a valid JSON object — no markdown, no backticks, no preamble.`;
+
+    const userPrompt = `Read this scientific paper carefully and thoroughly. Then produce communications materials.
+
+Collaborating institutions / co-authors' affiliations: ${collaborators || 'Not specified'}
+Funding agencies: ${funding || 'Not specified'}
+Lead researcher for LinkedIn: ${leadResearcher || 'the lead author'}
+Quote from researcher (only include if provided): ${quote || 'None provided'}
+
+Return a JSON object with EXACTLY this structure:
+
+{
+  "paperTitle": "exact title of the paper",
+  "paperSummary": "2-sentence internal summary of the key finding",
+  "authors": "list of authors as they appear",
+
+  "pressRelease": {
+    "headline": "Clean, specific, plain-language headline. Search your knowledge for existing press releases on this exact paper title and use their language as inspiration. Also consider how similar papers in this field have been covered. Can use colloquial language like 'dead' for quiescent galaxies if standard in this field. No hype. No inaccurate metaphors.",
+    "subheadline": "One plain sentence expanding on the headline.",
+    "body": "Press release body (200-280 words). APS Physics synopsis style. Paragraph 1: scientific context and the open problem. Briefly explain any technical term a general reader would not know. Paragraph 2: what the researchers did and how. Paragraph 3: the key result, stated precisely. Paragraph 4: implications and next steps. Only include a quote if one was provided as input. Mention DARK at the Niels Bohr Institute. Mention funding naturally if provided. No em-dashes. No hype. No listicle constructions. No rhetorical questions.",
+    "figureRecommendation1": "The single best figure for the press release. Give figure number, describe what it shows, and explain why it communicates the result clearly.",
+    "figureRecommendation2": "The second best figure for the press release. Give figure number, describe what it shows, and explain why it is also worth considering."
+  },
+
+  "linkedin": {
+    "body": "LinkedIn post (120-160 words). First person as the lead researcher. Open with a warm personal line like 'Excited to share our new paper on...' or 'Happy to share that our paper on... has been published in...', including the paper title and journal link. Use 'we explored' or similar declarative phrasing. Explain what was done and what was found. Mentions of collaborators and funding should flow naturally as part of the text, not as separate lines. Only tag foundations provided as input with @. Image credit on its own line at the end: 'Image: [figure description] / [journal or paper title]'. No em-dashes. No hype. No rhetorical questions. No listicle constructions.",
+    "figureRecommendation": "Which specific figure from the paper works best for LinkedIn and why."
+  },
+
+  "instagram": {
+    "body": "Instagram caption (100-130 words). Science outreach style: informative, grounded, accurate. No emojis. No rhetorical questions. No drama. Start with a plain declarative statement about what the science is and why it matters. Explain the finding clearly and accessibly. Mention DARK, Niels Bohr Institute. Image credit on its own line at the bottom before hashtags: 'Image: [figure description] / [journal]'. No em-dashes. No hype. No listicle constructions.",
+    "hashtag1": "first suggested hashtag without the # symbol, specific to the scientific field",
+    "hashtag2": "second suggested hashtag without the # symbol, broader audience",
+    "imageFromPaper": {
+      "recommendation": "Which specific figure from the paper to use for image 1. Give figure number, describe what it shows, and explain why it communicates the result to a general audience.",
+      "credit": "Full credit line: Authors, paper title, journal/DOI"
+    }
+  },
+
+  "imageSuggestions": [
+    {
+      "option": 1,
+      "recommendation": "Think carefully about what the science in this paper is about: the physical phenomenon, the epoch, the object being studied. Identify a specific publicly licensed image that directly represents this science. Only suggest an image you are certain exists.",
+      "directUrl": "A direct URL to a specific individual image you are certain exists. Format: images.nasa.gov/details/[ID], or esahubble.org/images/[ID], or esawebb.org/images/[ID], or a Wikimedia Commons file page. Do NOT provide search URLs. Do NOT provide collection pages. One specific image only.",
+      "creditLine": "Full exact credit line for this specific image, e.g. 'Credit: NASA/ESA/Hubble Heritage Team' or 'Credit: ESA/Webb, NASA & CSA, [PI name]'"
+    },
+    {
+      "option": 2,
+      "recommendation": "A second scientifically relevant image, different in subject or source from option 1. Only suggest an image you are certain exists at the URL provided.",
+      "directUrl": "Direct URL to a specific individual image. Same format requirements as option 1. No search URLs.",
+      "creditLine": "Full exact credit line for this specific image."
+    },
+    {
+      "option": 3,
+      "recommendation": "A third option, ideally from a different source than options 1 and 2. Only suggest an image you are certain exists. If you cannot identify a third confident option, return an empty string for directUrl and note that in the recommendation.",
+      "directUrl": "Direct URL to a specific individual image, or empty string if no confident third option exists.",
+      "creditLine": "Full exact credit line, or empty string."
+    }
+  ]
+}`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-5',
+        max_tokens: 8000,
+        system: systemPrompt,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'document',
+              source: {
+                type: 'base64',
+                media_type: 'application/pdf',
+                data: pdfBase64
+              }
+            },
+            { type: 'text', text: userPrompt }
+          ]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || `API error ${response.status}`);
+    }
+
+    setStatus('Processing results...', 80);
+
+    const data = await response.json();
+    const rawText = data.content.map(b => b.text || '').join('');
+
+    let parsed;
+    try {
+      const cleaned = rawText.replace(/```json|```/g, '').trim();
+      parsed = JSON.parse(cleaned);
+    } catch(e) {
+      throw new Error('Could not parse response from Claude. Try again.');
+    }
+
+    generatedData = parsed;
+    setStatus('Rendering outputs...', 95);
+
+    renderResults(parsed);
+
+    setStatus('Done!', 100);
+    setStep(3);
+
+    document.getElementById('inputSection').style.display = 'none';
+    document.getElementById('results').style.display = 'block';
+
+    btn.disabled = false;
+    btn.innerHTML = 'Generate Communications Materials';
+
+  } catch(err) {
+    showError(err.message);
+    btn.disabled = false;
+    btn.innerHTML = 'Generate Communications Materials';
+    document.getElementById('progressSection').style.display = 'none';
+    setStep(1);
+  }
+}
+
+// ─── Render Results ───────────────────────────────────────────────────────────
+function renderResults(d) {
+  const pr = d.pressRelease;
+  document.getElementById('pressReleaseText').textContent =
+    `${pr.headline}\n${pr.subheadline}\n\n${pr.body}`;
+
+  document.getElementById('pressReleaseImg1').innerHTML = `
+    <h4>Recommended Figure 1</h4>
+    <p>${pr.figureRecommendation1}</p>`;
+
+  document.getElementById('pressReleaseImg2').innerHTML = `
+    <h4>Recommended Figure 2</h4>
+    <p>${pr.figureRecommendation2}</p>`;
+
+  document.getElementById('linkedinText').textContent = d.linkedin.body;
+  document.getElementById('linkedinImg').innerHTML = `
+    <h4>Recommended Figure</h4>
+    <p>${d.linkedin.figureRecommendation}</p>`;
+
+  const ig = d.instagram;
+  document.getElementById('instagramText').textContent = ig.body;
+
+  document.getElementById('instagramHashtags').innerHTML = `
+    <span class="hashtag">#${ig.hashtag1}</span>
+    <span class="hashtag">#${ig.hashtag2}</span>
+    <span class="hashtag">#NielsBohrInstitute</span>
+    <span class="hashtag">#Science</span>`;
+
+  document.getElementById('instagramImg1').innerHTML = `
+    <h4>Recommended Figure — From Paper</h4>
+    <p>${ig.imageFromPaper.recommendation}</p>
+    <p style="margin-top:8px;"><strong>Credit:</strong> ${ig.imageFromPaper.credit}</p>`;
+
+  const imgs = d.imageSuggestions || [];
+  document.getElementById('imageSuggestions').innerHTML = `
+    <h4>Publicly Licensed Image Suggestions — NASA / ESA / Wikimedia</h4>
+    <p style="margin-bottom:12px;font-size:13px;color:#666;">These suggestions apply to all outputs: press release, LinkedIn, and Instagram.</p>
+    ${imgs.map((img, i) => `
+      <div style="margin-top:${i > 0 ? '16px' : '0'};padding-top:${i > 0 ? '16px' : '0'};border-top:${i > 0 ? '1px solid #ddd' : 'none'}">
+        <p><strong>Option ${img.option}</strong></p>
+        <p style="margin-top:4px;">${img.recommendation}</p>
+        ${img.directUrl ? `<p style="margin-top:6px;"><strong>Link:</strong> <a href="${img.directUrl}" target="_blank" rel="noopener">${img.directUrl}</a></p>` : ''}
+        ${img.creditLine ? `<p style="margin-top:6px;"><strong>Credit:</strong> ${img.creditLine}</p>` : ''}
+      </div>
+    `).join('')}`;
+
+  generateTextFile(d);
+}
+
+
+// ─── Text File Generation ─────────────────────────────────────────────────────
+function generateTextFile(d) {
+  const ig = d.instagram;
+  const pr = d.pressRelease;
+  const li = d.linkedin;
+
+  const lines = [
+    '='.repeat(62),
+    'DARK, NIELS BOHR INSTITUTE — COMMUNICATIONS MATERIALS',
+    '='.repeat(62),
+    `Paper:     ${d.paperTitle}`,
+    `Authors:   ${d.authors}`,
+    `Generated: ${new Date().toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'})}`,
+    '',
+    '',
+    '─'.repeat(62),
+    '1.  PRESS RELEASE',
+    '─'.repeat(62),
+    '',
+    pr.headline.toUpperCase(),
+    pr.subheadline,
+    '',
+    pr.body,
+    '',
+    '▸ FIGURE RECOMMENDATION 1',
+    pr.figureRecommendation1,
+    '',
+    '▸ FIGURE RECOMMENDATION 2',
+    pr.figureRecommendation2,
+    '',
+    '',
+    '─'.repeat(62),
+    '2.  LINKEDIN POST',
+    '─'.repeat(62),
+    '',
+    li.body,
+    '',
+    '▸ FIGURE RECOMMENDATION',
+    li.figureRecommendation,
+    '',
+    '',
+    '─'.repeat(62),
+    '3.  INSTAGRAM POST',
+    '─'.repeat(62),
+    '',
+    ig.body,
+    '',
+    `Hashtags:  #${ig.hashtag1}  #${ig.hashtag2}  #NielsBohrInstitute  #Science`,
+    '',
+    '▸ FIGURE FROM PAPER',
+    ig.imageFromPaper.recommendation,
+    `Credit: ${ig.imageFromPaper.credit}`,
+    '',
+    '',
+    '─'.repeat(62),
+    '4.  IMAGE SUGGESTIONS (for all outputs)',
+    '─'.repeat(62),
+    '',
+    ...(d.imageSuggestions || []).flatMap(img => [
+      `Option ${img.option}: ${img.recommendation}`,
+      `Link:    ${img.directUrl || 'Not provided'}`,
+      `Credit:  ${img.creditLine || 'Not provided'}`,
+      '',
+    ]),
+    '='.repeat(62),
+    'DARK, Niels Bohr Institute — nbi.ku.dk',
+    '='.repeat(62),
+  ];
+
+  const text = lines.join('\n');
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+
+  // Auto-download
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'NBI-communications-materials.txt';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function downloadAll() {
+  if (!generatedData) return;
+  generateTextFile(generatedData);
+}
+
+// ─── UI Helpers ───────────────────────────────────────────────────────────────
+function setStatus(msg, pct) {
+  document.getElementById('statusLog').textContent = msg;
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+
+function setStep(n) {
+  for (let i = 1; i <= 3; i++) {
+    const el = document.getElementById('step' + i);
+    if (i < n) el.className = 'step done';
+    else if (i === n) el.className = 'step active';
+    else el.className = 'step';
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorBox');
+  el.textContent = '⚠ ' + msg;
+  el.classList.add('visible');
+}
+
+function hideError() {
+  document.getElementById('errorBox').classList.remove('visible');
+}
+
+function resetForm() {
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('inputSection').style.display = 'block';
+  document.getElementById('progressSection').style.display = 'none';
+  pdfBase64 = null;
+  generatedData = null;
+  document.getElementById('filename').textContent = '';
+  uploadZone.classList.remove('has-file');
+  uploadZone.querySelector('p').textContent = 'Click to upload your paper PDF';
+  setStep(1);
+}
+</script>
+</body>
+</html>
