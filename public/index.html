@@ -571,7 +571,7 @@ const TEAM = [
   { name:'Jens Hjorth',           email:'jens@nbi.ku.dk',                  arxivNames:['Hjorth, J','Hjorth, Jens'] },
   { name:'Jo Verwohlt',           email:'jo.verwohlt@nbi.ku.dk',           arxivNames:['Verwohlt, J','Verwohlt, Jo'] },
   { name:'Judit Prat',            email:'judit.prat@nbi.ku.dk',            arxivNames:['Prat, J','Prat, Judit'] },
-  { name:'Radek Wojtak',          email:'radek.wojtak@nbi.ku.dk',          arxivNames:['Wojtak, R','Wojtak, Radek','Wojtak, Radoslaw','Wojtak, R. J'] },
+  { name:'Radek Wojtak',          email:'radek.wojtak@nbi.ku.dk',          arxivNames:['Wojtak, R','Wojtak, Radek','Wojtak, Radoslaw','Wojtak, Radosław','Wojtak, R. J'] },
   { name:'William Baker',         email:'william.baker@nbi.ku.dk',         arxivNames:['Baker, W','Baker, William','Baker, W. M'] },
 ];
 
@@ -664,13 +664,18 @@ async function searchArxiv(teamMembers, daysBack) {
         const lastLower = lastName.toLowerCase();
 
         const authorIndex = authors.findIndex(a => {
-          const aLower = a.toLowerCase();
-          if (!aLower.includes(lastLower)) return false;
+          // Normalise to handle diacritics (e.g. Radosław → Radoslaw)
+          const normalize = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+          const aNorm = normalize(a);
+          const lastNorm = normalize(lastName);
+          const firstNorm = normalize(firstName);
+          const initNorm = firstNorm.charAt(0);
+          if (!aNorm.includes(lastNorm)) return false;
           return (
-            aLower.includes(firstLower) ||
-            aLower.includes(firstInitial+'.') ||
-            aLower.includes(firstInitial+' ') ||
-            new RegExp('\\b'+firstInitial+'\\b').test(aLower)
+            aNorm.includes(firstNorm) ||
+            aNorm.includes(initNorm+'.') ||
+            aNorm.includes(initNorm+' ') ||
+            new RegExp('\\b'+initNorm+'\\b').test(aNorm)
           );
         });
 
