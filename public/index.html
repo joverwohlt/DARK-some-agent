@@ -98,6 +98,9 @@
   .summary-bar h3{font-size:16px;margin-bottom:4px;}
   .summary-bar p{font-size:13px;color:#ccc;}
   .no-papers{text-align:center;padding:48px;color:var(--muted);font-size:15px;background:white;border-radius:8px;border:1px solid var(--border);}
+  .sort-tab{padding:8px 18px;border:1px solid var(--border);background:white;border-radius:6px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:all 0.2s;}
+  .sort-tab:hover{border-color:var(--red);color:var(--red);}
+  .sort-tab.active{background:var(--red);color:white;border-color:var(--red);}
   @media(max-width:600px){.form-row{grid-template-columns:1fr;}.team-grid{grid-template-columns:1fr 1fr;}header{padding:16px 20px;}.container{padding:24px 16px;}.tabs{padding:0 20px;}}
 </style>
 </head>
@@ -261,6 +264,12 @@
       <button class="btn-primary" id="generateAllBtn" onclick="generateAll()" style="width:auto;background:white;color:var(--green);font-weight:700;">
         Generate All &amp; Send Emails
       </button>
+    </div>
+    <div id="sortTabs" style="display:none;margin-bottom:16px;display:none;">
+      <div style="display:flex;gap:8px;">
+        <button class="sort-tab active" id="sortByPosition" onclick="sortPapers('position')">Author Position</button>
+        <button class="sort-tab" id="sortByDate" onclick="sortPapers('date')">Newest First</button>
+      </div>
     </div>
     <div id="papersContainer"></div>
   </div>
@@ -713,6 +722,10 @@ function showScanResults(papers, daysBack) {
   }
 
   document.getElementById('generateBar').style.display = 'flex';
+  document.getElementById('sortTabs').style.display = 'block';
+  // Reset sort to default
+  document.getElementById('sortByPosition').classList.add('active');
+  document.getElementById('sortByDate').classList.remove('active');
 
   papers.forEach((paper,i) => {
     const pos = paper.bestPosition;
@@ -921,11 +934,73 @@ function renderScanResult(bodyEl, paper, data) {
   bodyEl.innerHTML = html;
 }
 
+function sortPapers(by) {
+  // Update active tab
+  document.getElementById('sortByPosition').classList.toggle('active', by==='position');
+  document.getElementById('sortByDate').classList.toggle('active', by==='date');
+
+  if (by==='position') {
+    foundPapers.sort((a,b) => a.bestPosition!==b.bestPosition ? a.bestPosition-b.bestPosition : b.published-a.published);
+  } else {
+    foundPapers.sort((a,b) => b.published-a.published);
+  }
+
+  // Re-render paper list preserving generated results
+  const container = document.getElementById('papersContainer');
+  const existingBodies = {};
+  const existingBadges = {};
+  foundPapers.forEach((p,i) => {
+    const body = document.getElementById(`body-${i}`);
+    const badge = document.getElementById(`badge-${i}`);
+    if (body) existingBodies[p.id] = body.innerHTML;
+    if (badge) existingBadges[p.id] = { cls: badge.className, txt: badge.textContent };
+  });
+
+  // Rebuild with new order
+  const papers = [...foundPapers];
+  container.innerHTML = '';
+  papers.forEach((paper, i) => {
+    const pos = paper.bestPosition;
+    const posLabel = pos===1?'1ST AUTHOR':pos===2?'2ND AUTHOR':pos===3?'3RD AUTHOR':`${pos}TH AUTHOR`;
+    const posColor = pos===1?'var(--red)':pos===2?'#8e44ad':pos===3?'#2980b9':'#555';
+    const prevBadge = existingBadges[paper.id];
+    const prevBody = existingBodies[paper.id];
+    const badgeCls = prevBadge ? prevBadge.cls : 'status-badge';
+    const badgeTxt = prevBadge ? prevBadge.txt : 'Pending';
+    const badgeStyle = prevBadge ? '' : 'style="background:#555;color:white;"';
+    const bodyContent = prevBody || `<p style="color:var(--muted);font-size:13px;line-height:1.6;">${paper.summary.substring(0,300)}...</p>`;
+    const btnDisplay = prevBadge && prevBadge.txt === 'Sent' ? 'display:none;' : '';
+
+    const div = document.createElement('div');
+    div.className = 'paper-result';
+    div.id = `paper-${i}`;
+    div.innerHTML = `
+      <div class="paper-header">
+        <div style="flex:1;min-width:0;">
+          <div class="meta">
+            <span style="background:${posColor};color:white;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;margin-right:6px;">${posLabel}</span>
+            ${paper.matchedMembers.map(m=>m.name+' (#'+m.authorPosition+')').join(', ')} ·
+            ${paper.published.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})} ·
+            <a href="${paper.arxivUrl}" target="_blank" style="color:#aaa;font-size:12px;">${paper.id}</a>
+          </div>
+          <h3>${paper.title}</h3>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+          <span class="${badgeCls}" id="badge-${i}" ${badgeStyle}>${badgeTxt}</span>
+          <button onclick="generateSingle(${i})" id="genbtn-${i}" style="background:var(--red);color:white;border:none;padding:7px 14px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;${btnDisplay}">Generate</button>
+        </div>
+      </div>
+      <div class="paper-body" id="body-${i}">${bodyContent}</div>`;
+    container.appendChild(div);
+  });
+}
+
 function resetScan() {
   document.getElementById('scanResults').style.display = 'none';
   document.getElementById('scanInputSection').style.display = 'block';
   document.getElementById('scanProgressSection').style.display = 'none';
   document.getElementById('scanProgressFill').style.width = '0%';
+  document.getElementById('sortTabs').style.display = 'none';
   foundPapers = [];
 }
 
