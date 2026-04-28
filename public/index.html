@@ -798,48 +798,52 @@ async function processPaper(paper, index) {
     const matchedNames = paper.matchedMembers.map(m => m.name).join(', ');
     const leadResearcher = paper.matchedMembers[0]?.name || paper.authors[0];
 
-    const scanUserPrompt = `Read this paper and produce communications materials.
+    // Fetch full PDF from arXiv via server
+    bodyEl.innerHTML = '<div class="status-log">Fetching full paper PDF...</div>';
+    let pdfBase64 = null;
+    try {
+      const pdfRes = await fetch('/api/fetch-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ arxivId: paper.id })
+      });
+      if (pdfRes.ok) {
+        const pdfData = await pdfRes.json();
+        pdfBase64 = pdfData.base64;
+      }
+    } catch(e) {
+      console.warn('PDF fetch failed, falling back to abstract:', e);
+    }
+    bodyEl.innerHTML = '<div class="status-log">Generating communications materials...</div>';
 
+    // Use same user prompt as upload tab, with DARK-specific additions
+    const userPrompt = getUserPrompt(
+      '', // collaborators — extracted from paper
+      'VILLUM FONDEN',
+      leadResearcher,
+      ''
+    ) + `
+
+Additional context for this paper:
 DARK team members who are authors: ${matchedNames}
-Lead researcher for LinkedIn: ${leadResearcher}
-Funding: VILLUM FONDEN
-
-Title: ${paper.title}
-Authors: ${paper.authors.join(', ')}
 arXiv ID: ${paper.id}
-Published: ${paper.published.toISOString().split('T')[0]}
 arXiv URL: ${paper.arxivUrl}
+${!pdfBase64 ? `\nAbstract (full PDF unavailable):\n${paper.summary}` : ''}
 
-Abstract:
-${paper.summary}
+For LinkedIn, generate one post per DARK team member author listed above.
+Return the "linkedin" field as an array:
+[
+  ${paper.matchedMembers.map(m => `{"authorName":"${m.name}","body":"120-160 words. First person as ${m.name}. Warm opening. @VILLUM FONDEN. Image credit at end."}`).join(',
+  ')}
+]`;
 
-Note: This is based on the arXiv abstract. If you recognise this paper as published, use the published journal details.
-
-Return JSON with this structure:
-{
-  "paperTitle": "exact title",
-  "authors": "full author list",
-  "pressRelease": {
-    "headline": "clean headline based on field conventions",
-    "subheadline": "one plain sentence",
-    "body": "200-280 words. APS style. No em-dashes. No hype.",
-    "figureRecommendation1": "best figure recommendation",
-    "figureRecommendation2": "second best figure recommendation"
-  },
-  "linkedin": [
-    ${paper.matchedMembers.map(m => `{"authorName":"${m.name}","body":"120-160 words. First person as ${m.name}. Warm opening. @VILLUM FONDEN if relevant. Image credit at end."}`).join(',\n    ')}
-  ],
-  "instagram": {
-    "body": "100-130 words. Science outreach. No emojis. No drama. DARK, Niels Bohr Institute mentioned.",
-    "hashtag1": "field-specific hashtag without #",
-    "hashtag2": "broader hashtag without #",
-    "imageFromPaper": {"recommendation": "ideal figure description","credit": "credit line"}
-  },
-  "imageSuggestions": [
-    {"option":1,"recommendation":"description","directUrl":"direct URL or empty string","creditLine":"credit"},
-    {"option":2,"recommendation":"description","directUrl":"direct URL or empty string","creditLine":"credit"}
-  ]
-}`;
+    // Build message content — use PDF if available, otherwise text
+    const messageContent = pdfBase64
+      ? [
+          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
+          { type: 'text', text: userPrompt }
+        ]
+      : userPrompt;
 
     const response = await fetch('/api/generate', {
       method: 'POST',
@@ -848,7 +852,7 @@ Return JSON with this structure:
         model: 'claude-opus-4-5',
         max_tokens: 8000,
         system: getSystemPrompt(),
-        messages: [{ role: 'user', content: scanUserPrompt }]
+        messages: [{ role: 'user', content: messageContent }]
       })
     });
 
