@@ -361,7 +361,7 @@ async function generateFromUpload() {
     const raw = data.content.map(b => b.text||'').join('');
     generatedData = JSON.parse(raw.replace(/```json|```/g,'').trim());
 
-    renderUploadResults(generatedData);
+    await renderUploadResults(generatedData);
     setUploadStatus('Done.', 100);
     document.getElementById('uploadInputSection').style.display = 'none';
     document.getElementById('uploadResults').style.display = 'block';
@@ -375,7 +375,61 @@ async function generateFromUpload() {
   }
 }
 
-function renderUploadResults(d) {
+async function verifyUrls(imageSuggestions) {
+  const urls = (imageSuggestions || []).map(i => i.directUrl).filter(u => u && u.startsWith('http'));
+  if (urls.length === 0) return {};
+  try {
+    const res = await fetch('/api/verify-urls', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls })
+    });
+    if (res.ok) return (await res.json()).results || {};
+  } catch(e) {}
+  return {};
+}
+
+function renderImageSuggestions(imgs, verifiedMap) {
+  if (!imgs || imgs.length === 0) return '<p style="color:var(--muted);font-size:13px;">No image suggestions.</p>';
+  return imgs.map(img => {
+    const hasUrl = img.directUrl && img.directUrl.startsWith('http');
+    const verified = hasUrl ? verifiedMap[img.directUrl] : null;
+    const badge = hasUrl
+      ? (verified === true
+          ? '<span style="background:#27ae60;color:white;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700;margin-left:6px;">VERIFIED</span>'
+          : verified === false
+            ? '<span style="background:#c0392b;color:white;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700;margin-left:6px;">UNVERIFIED</span>'
+            : '')
+      : '';
+    return `<div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">
+      <p><strong>Option ${img.option}:</strong> ${img.recommendation}</p>
+      ${hasUrl ? `<p style="margin-top:6px;"><strong>Link:</strong> <a href="${img.directUrl}" target="_blank">${img.directUrl}</a>${badge}</p>` : '<p style="margin-top:6px;color:var(--muted);font-size:12px;">No URL provided.</p>'}
+      ${img.creditLine ? `<p style="margin-top:4px;"><strong>Credit:</strong> ${img.creditLine}</p>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderScanImageSuggestions(imgs, verifiedMap) {
+  if (!imgs || imgs.length === 0) return '';
+  return imgs.map(img => {
+    const hasUrl = img.directUrl && img.directUrl.startsWith('http');
+    const verified = hasUrl ? verifiedMap[img.directUrl] : null;
+    const badge = hasUrl
+      ? (verified === true
+          ? '<span style="background:#27ae60;color:white;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700;margin-left:6px;">VERIFIED</span>'
+          : verified === false
+            ? '<span style="background:#c0392b;color:white;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700;margin-left:6px;">UNVERIFIED</span>'
+            : '')
+      : '';
+    return `<div class="image-rec" style="margin-bottom:10px;">
+      <strong>Option ${img.option}:</strong> ${img.recommendation}<br>
+      ${hasUrl ? `<strong>Link:</strong> <a href="${img.directUrl}" target="_blank">${img.directUrl}</a>${badge}<br>` : '<span style="color:var(--muted);font-size:12px;">No URL provided.</span><br>'}
+      <strong>Credit:</strong> ${img.creditLine}
+    </div>`;
+  }).join('');
+}
+
+async function renderUploadResults(d) {
   const pr = d.pressRelease;
   document.getElementById('prText').textContent = `${pr.headline}\n${pr.subheadline}\n\n${pr.body}`;
   document.getElementById('prImg1').innerHTML = `<h4>Recommended Figure 1</h4><p>${pr.figureRecommendation1}</p>`;
@@ -393,13 +447,10 @@ function renderUploadResults(d) {
     <span class="hashtag">#Science</span>`;
   document.getElementById('igImg').innerHTML = `<h4>Figure from Paper</h4><p>${ig.imageFromPaper.recommendation}</p><p style="margin-top:6px;"><strong>Credit:</strong> ${ig.imageFromPaper.credit}</p>`;
 
-  const imgs = d.imageSuggestions || [];
-  document.getElementById('imgSuggestions').innerHTML = imgs.map(img => `
-    <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">
-      <p><strong>Option ${img.option}:</strong> ${img.recommendation}</p>
-      ${img.directUrl ? `<p style="margin-top:6px;"><strong>Link:</strong> <a href="${img.directUrl}" target="_blank">${img.directUrl}</a></p>` : ''}
-      ${img.creditLine ? `<p style="margin-top:4px;"><strong>Credit:</strong> ${img.creditLine}</p>` : ''}
-    </div>`).join('');
+  // Verify image URLs
+  document.getElementById('imgSuggestions').innerHTML = '<p style="color:var(--muted);font-size:13px;">Verifying image URLs...</p>';
+  const verifiedMap = await verifyUrls(d.imageSuggestions);
+  document.getElementById('imgSuggestions').innerHTML = renderImageSuggestions(d.imageSuggestions, verifiedMap);
 
   downloadTextFile();
 }
@@ -502,10 +553,14 @@ INSTAGRAM STYLE:
 - Science outreach style: informative, grounded, accurate. Not dramatic.
 - No emojis anywhere.
 
+PRESS RELEASE RESEARCH:
+- Before writing the headline and body, search your knowledge for existing press releases, news articles, or science magazine coverage of this exact paper by title. Also search for how similar papers in this scientific field have been covered. Use the vocabulary, title style, and level of explanation that matches how this field is actually communicated to the public.
+
 IMAGE SUGGESTIONS:
 - Only suggest images at direct URLs you are certain exist from NASA, ESA, or Wikimedia Commons.
 - No search page URLs. No collection pages. One specific image per option.
 - Focus on the science, not the instrument.
+- URLs will be automatically verified after you respond. If you are uncertain about a URL, leave directUrl as an empty string.
 
 You must respond ONLY with a valid JSON object — no markdown, no backticks, no preamble.`;
 }
@@ -926,16 +981,20 @@ function renderScanResult(bodyEl, paper, data) {
 
   const imgs = data.imageSuggestions||[];
   if(imgs.length>0) {
-    html += `<div class="divider"></div><div class="section-label">Image Suggestions</div>`;
-    imgs.forEach(img => {
-      html += `<div class="image-rec" style="margin-bottom:10px;">
-        <strong>Option ${img.option}:</strong> ${img.recommendation}<br>
-        ${img.directUrl?`<strong>Link:</strong> <a href="${img.directUrl}" target="_blank">${img.directUrl}</a><br>`:''}
-        <strong>Credit:</strong> ${img.creditLine}
-      </div>`;
-    });
+    html += `<div class="divider"></div><div class="section-label">Image Suggestions <span style="color:var(--muted);font-weight:400;font-size:11px;">— verifying URLs...</span></div>`;
+    html += `<div id="imgverify-${paper.id.replace(/\./g,'-')}"></div>`;
   }
   bodyEl.innerHTML = html;
+
+  // Verify image URLs after rendering
+  if(imgs.length>0) {
+    const verifiedMap = await verifyUrls(imgs);
+    const verifyEl = document.getElementById(`imgverify-${paper.id.replace(/\./g,'-')}`);
+    if(verifyEl) verifyEl.innerHTML = renderScanImageSuggestions(imgs, verifiedMap);
+    // Update label
+    const labels = bodyEl.querySelectorAll('.section-label');
+    labels.forEach(l => { if(l.textContent.includes('Image Suggestions')) l.innerHTML = 'Image Suggestions'; });
+  }
 }
 
 function sortPapers(by) {
