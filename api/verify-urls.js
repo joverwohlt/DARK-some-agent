@@ -14,12 +14,26 @@ export default async function handler(req, res) {
   await Promise.allSettled(
     urls.filter(u => u && u.startsWith('http')).map(async url => {
       try {
+        // Try GET first (some servers reject HEAD) — read only a small chunk
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+
         const response = await fetch(url, {
-          method: 'HEAD',
-          headers: { 'User-Agent': 'DARK-SoMe-Agent/1.0' },
-          signal: AbortSignal.timeout(5000)
+          method: 'GET',
+          headers: {
+            'User-Agent': 'DARK-SoMe-Agent/1.0 (contact: jo.verwohlt@nbi.ku.dk)',
+            'Range': 'bytes=0-1023' // Only download first 1KB to verify existence
+          },
+          signal: controller.signal
         });
-        results[url] = response.ok;
+        clearTimeout(timeout);
+
+        // Check content type is an image
+        const contentType = response.headers.get('content-type') || '';
+        const isImage = contentType.startsWith('image/') ||
+                        url.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i);
+
+        results[url] = response.ok && (isImage || response.status === 206);
       } catch {
         results[url] = false;
       }

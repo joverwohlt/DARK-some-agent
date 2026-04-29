@@ -582,19 +582,19 @@ Return a JSON object with EXACTLY this structure:
     "headline": "Clean specific headline. Search your knowledge for existing press releases on this paper title. No hype.",
     "subheadline": "One plain sentence expanding on the headline.",
     "body": "200-280 words. APS Physics synopsis style. No em-dashes. No hype. Mention DARK at the Niels Bohr Institute. Mention funding naturally if provided.",
-    "figureRecommendation1": "Best figure: number, description, why it communicates the result.",
-    "figureRecommendation2": "Second best figure: number, description, why."
+    "figureRecommendation1": "Best figure. Start with the figure number e.g. 'Figure 3' — then describe what it shows and why it communicates the result. Always include the figure number.",
+    "figureRecommendation2": "Second best figure. Start with the figure number e.g. 'Figure 1' — then describe what it shows and why. Always include the figure number."
   },
   "linkedin": {
     "body": "120-160 words. First person. Warm opening. Declarative. Funding flows naturally with @ if provided. Image credit at end.",
-    "figureRecommendation": "Which figure works best for LinkedIn and why."
+    "figureRecommendation": "Which figure works best for LinkedIn. Start with the figure number e.g. 'Figure 2' — then explain why. Always include the figure number."
   },
   "instagram": {
     "body": "100-130 words. Science outreach. No emojis. No drama. DARK, Niels Bohr Institute mentioned. Image credit before hashtags.",
     "hashtag1": "field-specific hashtag without #",
     "hashtag2": "broader hashtag without #",
     "imageFromPaper": {
-      "recommendation": "Which figure to use and why it works for a general audience.",
+      "recommendation": "Which figure to use. Start with the figure number e.g. 'Figure 4' — then explain why it works for a general audience. Always include the figure number.",
       "credit": "Full credit line: Authors, paper title, journal/DOI"
     }
   },
@@ -885,12 +885,7 @@ arXiv ID: ${paper.id}
 arXiv URL: ${paper.arxivUrl}
 ${!pdfBase64 ? `\nAbstract (full PDF unavailable):\n${paper.summary}` : ''}
 
-For LinkedIn, generate one post per DARK team member author listed above.
-Return the "linkedin" field as an array:
-[
-  ${paper.matchedMembers.map(m => `{"authorName":"${m.name}","body":"120-160 words. First person as ${m.name}. Warm opening. @VILLUM FONDEN. Image credit at end."}`).join(',
-  ')}
-]`;
+`;
 
     // Build message content — use PDF if available, otherwise text
     const messageContent = pdfBase64
@@ -955,7 +950,7 @@ async function sendEmails(paper, data) {
   }
 }
 
-function renderScanResult(bodyEl, paper, data) {
+async function renderScanResult(bodyEl, paper, data) {
   const pr = data.pressRelease;
   const ig = data.instagram;
   const linkedinPosts = Array.isArray(data.linkedin) ? data.linkedin : [];
