@@ -344,8 +344,8 @@ async function generateFromUpload() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-opus-4-5',
-        max_tokens: 8000,
+        model: 'claude-sonnet-5',
+        max_tokens: 4000,
         system: systemPrompt,
         messages: [{ role: 'user', content: [
           { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
@@ -715,8 +715,8 @@ async function searchArxiv(teamMembers, daysBack) {
     for (const entry of entries) {
       // Use published date; fall back to updated date
       const published = new Date(
-        entry.querySelector('published')?.textContent ||
-        entry.querySelector('updated')?.textContent || ''
+        entry.getElementsByTagName('published')[0]?.textContent ||
+        entry.getElementsByTagName('updated')[0]?.textContent || ''
       );
       // Be generous with cutoff — server already filtered by date
       // but we add a 2-day buffer for timezone/indexing delays
@@ -724,16 +724,16 @@ async function searchArxiv(teamMembers, daysBack) {
       bufferCutoff.setDate(bufferCutoff.getDate() - 2);
       if (published < bufferCutoff) continue;
 
-      const id = entry.querySelector('id')?.textContent?.trim()||'';
+      const id = (entry.getElementsByTagName('id')[0]?.textContent||'').trim();
       if (seenIds.has(id)) continue;
       seenIds.add(id);
 
-      const title = entry.querySelector('title')?.textContent?.trim().replace(/\s+/g,' ')||'';
-      const summary = entry.querySelector('summary')?.textContent?.trim()||'';
-      const authorEls = Array.from(entry.querySelectorAll('author'));
-      const authors = authorEls.map(a => a.querySelector('name')?.textContent?.trim()||'');
+      const title = (entry.getElementsByTagName('title')[0]?.textContent||'').trim().replace(/\s+/g,' ');
+      const summary = (entry.getElementsByTagName('summary')[0]?.textContent||'').trim();
+      const authorEls = Array.from(entry.getElementsByTagName('author'));
+      const authors = authorEls.map(a => (a.getElementsByTagName('name')[0]?.textContent||'').trim()).filter(Boolean);
 
-      const categories = Array.from(entry.querySelectorAll('category'))
+      const categories = Array.from(entry.getElementsByTagName('category'))
         .map(c => c.getAttribute('term')||'').filter(c => c.startsWith('astro-ph'));
       if (categories.length===0) continue;
 
@@ -969,8 +969,8 @@ Return ONLY a valid JSON object — no markdown, no backticks, no preamble:
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-opus-4-5',
-        max_tokens: 8000,
+        model: 'claude-sonnet-5',
+        max_tokens: 4000,
         system: getSystemPrompt(),
         messages: [{ role: 'user', content: messageContent }]
       })
