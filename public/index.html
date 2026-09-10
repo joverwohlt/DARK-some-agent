@@ -642,7 +642,7 @@ const TEAM = [
   { name:'Jens Hjorth',           email:'jens@nbi.ku.dk',                  arxivNames:['Hjorth, J','Hjorth, Jens'] },
   { name:'Jo Verwohlt',           email:'jo.verwohlt@nbi.ku.dk',           arxivNames:['Verwohlt, J','Verwohlt, Jo'] },
   { name:'Judit Prat',            email:'judit.prat@nbi.ku.dk',            arxivNames:['Prat, J','Prat, Judit'] },
-  { name:'Radek Wojtak',          email:'radek.wojtak@nbi.ku.dk',          arxivNames:['Wojtak, R','Wojtak, Radek','Wojtak, Radoslaw','Wojtak, Radosław','Wojtak, R. J'] },
+  { name:'Radek Wojtak',          email:'radek.wojtak@nbi.ku.dk',          arxivNames:['Wojtak, R','Wojtak, Radek','Wojtak, Radoslaw','Wojtak, Radosław','Wojtak, R. J'], extraFirstNames:['radoslaw','radosław','radek'] },
   { name:'William Baker',         email:'william.baker@nbi.ku.dk',         arxivNames:['Baker, W','Baker, William','Baker, W. M'] },
 ];
 
@@ -742,12 +742,22 @@ async function searchArxiv(teamMembers, daysBack) {
           const firstNorm = normalize(firstName);
           const initNorm = firstNorm.charAt(0);
           if (!aNorm.includes(lastNorm)) return false;
-          return (
+          // Check standard first name / initial match
+          const standardMatch = (
             aNorm.includes(firstNorm) ||
             aNorm.includes(initNorm+'.') ||
             aNorm.includes(initNorm+' ') ||
             new RegExp('\\b'+initNorm+'\\b').test(aNorm)
           );
+          if (standardMatch) return true;
+          // Check extra first name variants (e.g. Radoslaw for Radek)
+          if (member.extraFirstNames) {
+            return member.extraFirstNames.some(extra => {
+              const extraNorm = normalize(extra);
+              return aNorm.includes(extraNorm) || aNorm.includes(extraNorm.charAt(0)+'.');
+            });
+          }
+          return false;
         });
 
         if (authorIndex!==-1 && !matchedMembers.find(m => m.name===member.name)) {
@@ -871,7 +881,12 @@ async function processPaper(paper, index) {
       });
       if (pdfRes.ok) {
         const pdfData = await pdfRes.json();
-        pdfBase64 = pdfData.base64;
+        // Only use PDF if under 3MB base64 (Vercel body limit is ~4.5MB)
+        if (pdfData.base64 && pdfData.base64.length < 3 * 1024 * 1024) {
+          pdfBase64 = pdfData.base64;
+        } else {
+          console.warn('PDF too large, falling back to abstract');
+        }
       }
     } catch(e) {
       console.warn('PDF fetch failed, falling back to abstract:', e);

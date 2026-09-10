@@ -1,3 +1,9 @@
+export const config = {
+  api: {
+    responseLimit: '10mb',
+  },
+};
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST');
@@ -12,7 +18,8 @@ export default async function handler(req, res) {
   try {
     const pdfUrl = `https://arxiv.org/pdf/${arxivId}`;
     const response = await fetch(pdfUrl, {
-      headers: { 'User-Agent': 'DARK-SoMe-Agent/1.0 (science communications tool; contact jo.verwohlt@nbi.ku.dk)' }
+      headers: { 'User-Agent': 'DARK-SoMe-Agent/1.0 (contact jo.verwohlt@nbi.ku.dk)' },
+      signal: AbortSignal.timeout(20000)
     });
 
     if (!response.ok) throw new Error(`PDF fetch failed: ${response.status}`);
@@ -20,7 +27,9 @@ export default async function handler(req, res) {
     const buffer = await response.arrayBuffer();
     const base64 = Buffer.from(buffer).toString('base64');
 
-    return res.status(200).json({ base64 });
+    // Warn client if PDF is very large
+    const sizeKB = Math.round(base64.length / 1024);
+    return res.status(200).json({ base64, sizeKB });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
