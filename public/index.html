@@ -696,6 +696,10 @@ async function searchArxiv(teamMembers, daysBack) {
   });
   if (!response.ok) throw new Error('arXiv search failed');
   const data = await response.json();
+  if (data.debug) {
+    console.log('arXiv query counts:', data.debug.counts);
+    console.log('Queries used:', data.debug.queries);
+  }
 
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - daysBack);
@@ -709,8 +713,16 @@ async function searchArxiv(teamMembers, daysBack) {
     const entries = Array.from(xml.querySelectorAll('entry'));
 
     for (const entry of entries) {
-      const published = new Date(entry.querySelector('published')?.textContent||'');
-      if (published < cutoff) continue;
+      // Use published date; fall back to updated date
+      const published = new Date(
+        entry.querySelector('published')?.textContent ||
+        entry.querySelector('updated')?.textContent || ''
+      );
+      // Be generous with cutoff — server already filtered by date
+      // but we add a 2-day buffer for timezone/indexing delays
+      const bufferCutoff = new Date(cutoff);
+      bufferCutoff.setDate(bufferCutoff.getDate() - 2);
+      if (published < bufferCutoff) continue;
 
       const id = entry.querySelector('id')?.textContent?.trim()||'';
       if (seenIds.has(id)) continue;
@@ -893,29 +905,65 @@ async function processPaper(paper, index) {
     }
     bodyEl.innerHTML = '<div class="status-log">Generating communications materials...</div>';
 
-    // Use same user prompt as upload tab, with DARK-specific additions
-    const userPrompt = getUserPrompt(
-      '', // collaborators — extracted from paper
-      'VILLUM FONDEN',
-      leadResearcher,
-      ''
-    ) + `
+    // Build scan-specific prompt — explicit JSON structure for array linkedin
+    const linkedinArray = paper.matchedMembers.map(m =>
+      `{"authorName":"${m.name}","body":"120-160 words. First person as ${m.name}. Open with Excited to share or Happy to share. Declarative. @VILLUM FONDEN flows naturally. Image credit at end."}`
+    ).join(',\n    ');
 
-Additional context for this paper:
+    const abstractFallback = !pdfBase64 ? `\nAbstract:\n${paper.summary}` : '';
+
+    const scanUserPrompt = `Read this paper carefully and produce communications materials.
+
 DARK team members who are authors: ${matchedNames}
-arXiv ID: ${paper.id}
-arXiv URL: ${paper.arxivUrl}
-${!pdfBase64 ? `\nAbstract (full PDF unavailable):\n${paper.summary}` : ''}
+Lead researcher: ${leadResearcher}
+Funding: VILLUM FONDEN
+arXiv URL: ${paper.arxivUrl}${abstractFallback}
 
-`;
+Return ONLY a valid JSON object — no markdown, no backticks, no preamble:
+{
+  "paperTitle": "exact title",
+  "authors": "full author list",
+  "pressRelease": {
+    "headline": "clean headline. Search your knowledge for existing press releases on this paper title and use that language register.",
+    "subheadline": "one plain sentence",
+    "body": "200-280 words. APS Physics synopsis style. No em-dashes. No hype. Mention DARK at the Niels Bohr Institute. Mention VILLUM FONDEN naturally.",
+    "figureRecommendation1": "best figure: number, what it shows, why",
+    "figureRecommendation2": "second best figure: number, what it shows, why"
+  },
+  "linkedin": [
+    ${linkedinArray}
+  ],
+  "instagram": {
+    "body": "100-130 words. Science outreach. No emojis. No rhetorical questions. DARK, Niels Bohr Institute mentioned. Image credit before hashtags.",
+    "hashtag1": "field-specific hashtag without #",
+    "hashtag2": "broader hashtag without #",
+    "imageFromPaper": {
+      "recommendation": "which figure to use and why",
+      "credit": "Authors, paper title, journal/DOI"
+    }
+  },
+  "imageSuggestions": [
+    {
+      "option": 1,
+      "recommendation": "scientifically relevant image description",
+      "directUrl": "direct URL at images.nasa.gov/details/[ID] or esahubble.org/images/[ID] or esawebb.org/images/[ID] or Wikimedia Commons. Empty string if not certain.",
+      "creditLine": "exact credit"
+    },
+    {
+      "option": 2,
+      "recommendation": "second option different source",
+      "directUrl": "direct URL or empty string",
+      "creditLine": "exact credit"
+    }
+  ]
+}`;
 
-    // Build message content — use PDF if available, otherwise text
     const messageContent = pdfBase64
       ? [
           { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
-          { type: 'text', text: userPrompt }
+          { type: 'text', text: scanUserPrompt }
         ]
-      : userPrompt;
+      : [{ type: 'text', text: scanUserPrompt }];
 
     const response = await fetch('/api/generate', {
       method: 'POST',
@@ -928,15 +976,22 @@ ${!pdfBase64 ? `\nAbstract (full PDF unavailable):\n${paper.summary}` : ''}
       })
     });
 
-    if (!response.ok) { const e=await response.json(); throw new Error(e.error?.message||'API error'); }
-    const data = await response.json();
+    const responseText = await response.text();
+    if (!response.ok) {
+      let errMsg = 'API error ' + response.status;
+      try { errMsg = JSON.parse(responseText).error?.message || errMsg; } catch(e) {}
+      throw new Error(errMsg);
+    }
+    let data;
+    try { data = JSON.parse(responseText); } catch(e) { throw new Error('Server returned invalid JSON: ' + responseText.substring(0, 200)); }
+    if (!data.content) throw new Error('Unexpected API response: ' + JSON.stringify(data).substring(0, 200));
     const raw = data.content.map(b=>b.text||'').join('');
     const cleaned = raw.replace(/```json|```/g,'').trim();
     let parsed;
     try {
       parsed = JSON.parse(cleaned);
     } catch(parseErr) {
-      throw new Error('Could not parse response. Claude returned: ' + cleaned.substring(0, 300));
+      throw new Error('Could not parse Claude response: ' + cleaned.substring(0, 400));
     }
 
     badgeEl.className = 'status-badge sending';

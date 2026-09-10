@@ -9,19 +9,22 @@ export default async function handler(req, res) {
   const { names, daysBack } = req.body;
 
   try {
-    // Strategy: run multiple queries and merge results
-    // 1. Affiliation-based: catches papers where NBI affiliation is in metadata
-    // 2. Author last-name based: catches papers where affiliation metadata is missing
     const lastNames = [...new Set((names || []).map(n => n.split(' ').pop()))];
     const authorQuery = lastNames.map(n => `au:${n}`).join('+OR+');
 
+    // Build date filter string for arXiv API (submittedDate:[from TO now])
+    const fromDate = new Date();
+    fromDate.setDate(fromDate.getDate() - (daysBack || 30));
+    const fromStr = fromDate.toISOString().split('T')[0].replace(/-/g, '');
+    const dateFilter = `+AND+submittedDate:[${fromStr}0000+TO+99991231235959]`;
+
     const queries = [
-      // Affiliation searches
-      `af:Jagtvej+AND+cat:astro-ph*`,
-      `af:%22Niels+Bohr+Institute%22+AND+cat:astro-ph*`,
-      `af:DARK+AND+af:Copenhagen+AND+cat:astro-ph*`,
-      // Author name search as fallback — catches papers with missing affiliation metadata
-      `(${authorQuery})+AND+cat:astro-ph*`,
+      // Affiliation-based — most reliable for DARK papers
+      `af:Jagtvej+AND+cat:astro-ph*${dateFilter}`,
+      `af:%22Niels+Bohr+Institute%22+AND+cat:astro-ph*${dateFilter}`,
+      `af:DARK+AND+af:Copenhagen+AND+cat:astro-ph*${dateFilter}`,
+      // Author name fallback — use with date filter to keep results manageable
+      `(${authorQuery})+AND+cat:astro-ph*${dateFilter}`,
     ];
 
     const results = await Promise.allSettled(
@@ -36,7 +39,9 @@ export default async function handler(req, res) {
       .filter(r => r.status === 'fulfilled')
       .map(r => r.value);
 
-    return res.status(200).json({ xmlResults });
+    const counts = xmlResults.map(xml => (xml.match(/<entry>/g) || []).length);
+
+    return res.status(200).json({ xmlResults, debug: { counts, queries, fromStr } });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
