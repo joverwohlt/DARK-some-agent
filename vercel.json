@@ -1,5 +1,11 @@
 {
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" }
-  ]
+  ],
+  "functions": {
+    "api/generate.js": { "maxDuration": 60 },
+    "api/fetch-pdf.js": { "maxDuration": 30 },
+    "api/arxiv.js": { "maxDuration": 30 },
+    "api/verify-urls.js": { "maxDuration": 15 }
+  }
 }
